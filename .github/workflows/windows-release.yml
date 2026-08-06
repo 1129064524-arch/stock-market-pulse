@@ -41,9 +41,25 @@ jobs:
       - name: Build Windows installer
         run: npx electron-builder --win nsis
 
+      - name: Verify installer output
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem -Path build/desktop-dist -Filter *.exe -File)
+          if ($installers.Count -eq 0) {
+            Write-Error "No Windows installer was produced in build/desktop-dist"
+          }
+          $installers | Select-Object -ExpandProperty FullName
+
       - name: Publish installer
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          files: build/desktop-dist/*.exe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $installers = @(Get-ChildItem -Path build/desktop-dist -Filter *.exe -File)
+          gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --generate-notes
+          }
+          foreach ($installer in $installers) {
+            gh release upload $env:GITHUB_REF_NAME $installer.FullName --repo $env:GITHUB_REPOSITORY --clobber
+          }
