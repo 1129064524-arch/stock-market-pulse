@@ -21,6 +21,7 @@ import SettingsPage from './pages/SettingsPage.jsx'
 import WatchlistPage from './pages/WatchlistPage.jsx'
 
 function App() {
+  const [theme, setTheme] = useState(() => window.localStorage.getItem('market-pulse-theme') || 'light')
   const [activeNav, setActiveNav] = useState('跨市场总览')
   const [market, setMarket] = useState('全部市场')
   const [query, setQuery] = useState('')
@@ -35,6 +36,14 @@ function App() {
   const [fundCategoryCounts, setFundCategoryCounts] = useState({})
   const [fundsState, setFundsState] = useState('idle')
   const [fundSource, setFundSource] = useState('sample')
+  const [selectedFund, setSelectedFund] = useState(null)
+  const [fundHoldings, setFundHoldings] = useState([])
+  const [fundLinkedStocks, setFundLinkedStocks] = useState([])
+  const [fundHoldingsState, setFundHoldingsState] = useState('idle')
+  const [fundHoldingsError, setFundHoldingsError] = useState('')
+  const [fundAnalysis, setFundAnalysis] = useState(null)
+  const [fundAnalysisState, setFundAnalysisState] = useState('idle')
+  const [fundAnalysisError, setFundAnalysisError] = useState('')
   const [linkage, setLinkage] = useState(null)
   const [linkageState, setLinkageState] = useState('idle')
   const [onlyMineFunds, setOnlyMineFunds] = useState(false)
@@ -72,6 +81,25 @@ function App() {
   const [alertEditorOpen, setAlertEditorOpen] = useState(false)
   const [alertDraft, setAlertDraft] = useState({ rule: '涨跌幅突破', threshold: '5' })
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('market-pulse-theme', theme)
+  }, [theme])
+
+  useEffect(() => {
+    const destinations = ['跨市场总览', '股票雷达', '基金全景', '信号池', '自选观察', 'AI 研判', '仓位参考', '预警中心', '盘后复盘']
+    const handleShortcut = (event) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      const index = Number(event.key) - 1
+      if (index >= 0 && index < destinations.length) {
+        event.preventDefault()
+        setActiveNav(destinations[index])
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -183,6 +211,16 @@ function App() {
     window.localStorage.setItem('market-pulse-fund-watchlist', JSON.stringify(fundWatchlist))
   }, [fundWatchlist])
 
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/watchlist/stock').then((response) => response.ok ? response.json() : []),
+      fetch('/api/v1/watchlist/fund').then((response) => response.ok ? response.json() : []),
+    ]).then(([stocks, savedFunds]) => {
+      if (stocks.length) setWatchlist((current) => [...current, ...stocks.filter((item) => !current.some((existing) => existing.code === item.code))])
+      if (savedFunds.length) setFundWatchlist((current) => [...new Set([...current, ...savedFunds.map((item) => item.code)])])
+    }).catch(() => {})
+  }, [])
+
   const showNotice = (message) => {
     setNotice(message)
     window.setTimeout(() => setNotice(''), 2600)
@@ -191,6 +229,7 @@ function App() {
   const toggleWatch = (stock = selected) => {
     setWatchlist((current) => {
       const exists = current.some((item) => item.code === stock.code)
+      fetch(`/api/v1/watchlist/stock/${stock.code}`, exists ? { method: 'DELETE' } : { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: stock.name }) }).catch(() => {})
       showNotice(exists ? `已移除 ${stock.name}` : `已加入 ${stock.name}`)
       return exists ? current.filter((item) => item.code !== stock.code) : [...current, stock]
     })
@@ -199,6 +238,7 @@ function App() {
   const toggleFundWatch = (fund) => {
     setFundWatchlist((current) => {
       const exists = current.includes(fund.code)
+      fetch(`/api/v1/watchlist/fund/${fund.code}`, exists ? { method: 'DELETE' } : { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fund.name }) }).catch(() => {})
       showNotice(exists ? `已移除 ${fund.name}` : `已加入 ${fund.name}`)
       return exists ? current.filter((code) => code !== fund.code) : [...current, fund.code]
     })
@@ -219,6 +259,64 @@ function App() {
     } catch {
       setFundsState('error')
       showNotice('基金估值刷新失败，请稍后重试')
+    }
+  }
+
+  const openFundHoldings = async (fund) => {
+    if (selectedFund?.code === fund.code && fundHoldingsState === 'ready') return
+    setSelectedFund(fund)
+    setFundHoldings([])
+    setFundLinkedStocks([])
+    setFundAnalysis(null)
+    setFundAnalysisState('idle')
+    setFundHoldingsError('')
+    setFundHoldingsState('loading')
+    try {
+      const [holdingsResponse, linkedResponse, analysisResponse] = await Promise.all([
+        fetch(`/api/v1/funds/${fund.code}/holdings`),
+        fetch(`/api/v1/linkage/fund/${fund.code}/stocks`),
+        fetch(`/api/v1/analysis/funds/${fund.code}/latest`),
+      ])
+      const holdingsPayload = await holdingsResponse.json()
+      const linkedPayload = await linkedResponse.json()
+      if (!holdingsResponse.ok) throw new Error(holdingsPayload?.detail?.message || '季报持仓暂不可用')
+      if (!linkedResponse.ok) throw new Error(linkedPayload?.detail?.message || '穿透行情暂不可用')
+      setFundHoldings(holdingsPayload || [])
+      setFundLinkedStocks(linkedPayload || [])
+      if (analysisResponse.ok) {
+        setFundAnalysis(await analysisResponse.json())
+        setFundAnalysisState('success')
+      }
+      setFundHoldingsState('ready')
+    } catch (error) {
+      setFundHoldingsError(error.message || '持仓数据加载失败')
+      setFundHoldingsState('error')
+    }
+  }
+
+  const closeFundHoldings = () => {
+    setSelectedFund(null)
+    setFundHoldings([])
+    setFundLinkedStocks([])
+    setFundAnalysis(null)
+    setFundAnalysisState('idle')
+    setFundHoldingsError('')
+    setFundHoldingsState('idle')
+  }
+
+  const analyzeFund = async () => {
+    if (!selectedFund) return
+    setFundAnalysisState('loading')
+    setFundAnalysisError('')
+    try {
+      const response = await fetch(`/api/v1/analysis/funds/${selectedFund.code}`, { method: 'POST' })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload?.detail?.message || '暂时无法生成基金研判')
+      setFundAnalysis(payload)
+      setFundAnalysisState('success')
+    } catch (error) {
+      setFundAnalysisError(error.message)
+      setFundAnalysisState('error')
     }
   }
 
@@ -362,7 +460,7 @@ function App() {
       setLiveOverview(snapshot)
       setSelected((current) => snapshot.movers.find((stock) => stock.code === current.code) || snapshot.movers[0] || current)
       setApiAvailable(true)
-      showNotice(snapshot.source === 'eastmoney' ? '实时行情已刷新' : '数据源暂不可用，已显示缓存数据')
+      showNotice(['akshare', 'eastmoney'].includes(snapshot.source) ? '实时行情已刷新' : '数据源暂不可用，已显示缓存数据')
     } catch {
       showNotice('行情刷新失败，请稍后重试')
     } finally {
@@ -482,7 +580,7 @@ function App() {
     '仓位参考': '研究优先级。',
   }
   const marketIndices = liveOverview?.indices || fallbackIndices
-  const marketSourceLabel = liveOverview?.source === 'eastmoney' ? (liveOverview.is_live ? '东方财富实时快照' : '东方财富收盘快照') : liveOverview?.source === 'cache' ? '本地缓存快照' : '演示数据模式'
+  const marketSourceLabel = liveOverview?.source === 'akshare' ? 'AkShare 全市场快照' : liveOverview?.source === 'eastmoney' ? (liveOverview.is_live ? '东方财富实时快照' : '东方财富收盘快照') : liveOverview?.source === 'cache' ? '本地缓存快照' : '演示数据模式'
   const marketTrading = liveOverview?.market_status === 'trading'
 
   return <div className="app-shell">
@@ -507,7 +605,7 @@ function App() {
 
         {activeNav === '股票雷达' && <MarketRadar marketIndices={marketIndices} liveOverview={liveOverview} liveMovers={liveMovers} liveSectors={liveSectors} apiAvailable={apiAvailable} marketSourceLabel={marketSourceLabel} filteredMovers={filteredMovers} selected={selected} setSelected={setSelected} focusOpen={focusOpen} setFocusOpen={setFocusOpen} watchlist={watchlist} toggleWatch={toggleWatch} dailyBars={dailyBars} dailyIndicators={dailyIndicators} syncingHistory={syncingHistory} syncDailyHistory={syncDailyHistory} signalAnalysisState={signalAnalysisState} generateSignalAnalysis={generateSignalAnalysis} query={query} setQuery={setQuery} setOnlyStrong={setOnlyStrong} market={market} setMarket={setMarket} setActiveNav={setActiveNav} />}
 
-        {activeNav === '基金全景' && <FundsPage funds={funds} universeCount={fundUniverseCount} categoryCounts={fundCategoryCounts} fundsState={fundsState} fundSource={fundSource} fundWatchlist={fundWatchlist} onlyMine={onlyMineFunds} setOnlyMine={setOnlyMineFunds} refreshFunds={refreshFunds} toggleFundWatch={toggleFundWatch} />}
+        {activeNav === '基金全景' && <FundsPage funds={funds} universeCount={fundUniverseCount} categoryCounts={fundCategoryCounts} fundsState={fundsState} fundSource={fundSource} fundWatchlist={fundWatchlist} onlyMine={onlyMineFunds} setOnlyMine={setOnlyMineFunds} refreshFunds={refreshFunds} toggleFundWatch={toggleFundWatch} selectedFund={selectedFund} fundHoldings={fundHoldings} fundLinkedStocks={fundLinkedStocks} fundHoldingsState={fundHoldingsState} fundHoldingsError={fundHoldingsError} openFundHoldings={openFundHoldings} closeFundHoldings={closeFundHoldings} analyzeFund={analyzeFund} fundAnalysis={fundAnalysis} fundAnalysisState={fundAnalysisState} fundAnalysisError={fundAnalysisError} />}
 
         {activeNav === '信号池' && <SignalPoolPage signalPool={signalPool} signalsState={signalsState} ruleSignals={ruleSignals} onlyStrong={onlyStrong} setOnlyStrong={setOnlyStrong} setQuery={setQuery} openStock={openStock} />}
 
@@ -518,7 +616,7 @@ function App() {
         {activeNav === '盘后复盘' && <ReviewPage showNotice={showNotice} />}
         {activeNav === 'AI 研判' && <ResearchWorkspace llmConfigured={llmConfigured} llmProtocol={llmProtocol} analysisState={analysisState} analysis={analysis} analysisError={analysisError} generateAnalysis={generateAnalysis} selected={selected} signalAnalysisState={signalAnalysisState} signalAnalysis={signalAnalysis} signalAnalysisError={signalAnalysisError} generateSignalAnalysis={generateSignalAnalysis} />}
         {activeNav === '仓位参考' && <DecisionReferencePage reference={decisionReference} state={decisionState} error={decisionError} onGenerate={generateDecisionReference} />}
-        {activeNav === '设置' && <SettingsPage onNotice={showNotice} onSettingsChanged={(settings) => { setLlmConfigured(Boolean(settings.configured)); setLlmProtocol(settings.protocol || 'chat_completions') }} />}
+        {activeNav === '设置' && <SettingsPage theme={theme} setTheme={setTheme} onNotice={showNotice} onSettingsChanged={(settings) => { setLlmConfigured(Boolean(settings.configured)); setLlmProtocol(settings.protocol || 'chat_completions') }} />}
         {activeNav === '帮助' && <HelpPage setActiveNav={setActiveNav} />}
         {notice && <div className="toast" role="status">{notice}</div>}
       </div>

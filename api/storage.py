@@ -18,9 +18,11 @@ def database_path() -> Path:
 def connect() -> Iterator[sqlite3.Connection]:
     path = database_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path)
+    connection = sqlite3.connect(path, timeout=10)
     connection.row_factory = sqlite3.Row
     try:
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA busy_timeout=5000")
         yield connection
         connection.commit()
     finally:
@@ -77,6 +79,7 @@ def initialize() -> None:
                 rule_name TEXT NOT NULL,
                 rule_version TEXT NOT NULL DEFAULT 'legacy',
                 score INTEGER NOT NULL,
+                direction TEXT NOT NULL DEFAULT 'unknown',
                 evidence TEXT NOT NULL,
                 risk TEXT NOT NULL,
                 source TEXT NOT NULL
@@ -91,11 +94,92 @@ def initialize() -> None:
             );
             CREATE INDEX IF NOT EXISTS analysis_runs_kind_time_idx
                 ON analysis_runs(kind, generated_at DESC);
+            CREATE TABLE IF NOT EXISTS fund_holdings (
+                fund_code TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                stock_code TEXT NOT NULL,
+                stock_name TEXT NOT NULL,
+                weight_pct REAL NOT NULL,
+                PRIMARY KEY (fund_code, report_date, stock_code)
+            );
+            CREATE INDEX IF NOT EXISTS fund_holdings_code_date_idx
+                ON fund_holdings(fund_code, report_date DESC);
+            CREATE TABLE IF NOT EXISTS watchlist (
+                code TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                added_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS fund_watchlist (
+                code TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                added_at TEXT NOT NULL
+            );
             """
         )
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(signal_events)")}
         if "rule_version" not in columns:
             connection.execute("ALTER TABLE signal_events ADD COLUMN rule_version TEXT NOT NULL DEFAULT 'legacy'")
+        if "direction" not in columns:
+            connection.execute("ALTER TABLE signal_events ADD COLUMN direction TEXT NOT NULL DEFAULT 'unknown'")
+
+
+def list_watchlist(asset_type: str) -> list[dict]:
+    initialize()
+    table = "fund_watchlist" if asset_type == "fund" else "watchlist"
+    with connect() as connection:
+        rows = connection.execute(f"SELECT code, name, added_at FROM {table} ORDER BY added_at DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+def save_watchlist_item(asset_type: str, code: str, name: str) -> dict:
+    initialize()
+    table = "fund_watchlist" if asset_type == "fund" else "watchlist"
+    added_at = datetime.now(timezone.utc).isoformat()
+    with connect() as connection:
+        connection.execute(
+            f"INSERT OR REPLACE INTO {table} (code, name, added_at) VALUES (?, ?, ?)",
+            (code, name, added_at),
+        )
+    return {"code": code, "name": name, "added_at": added_at}
+
+
+def delete_watchlist_item(asset_type: str, code: str) -> None:
+    initialize()
+    table = "fund_watchlist" if asset_type == "fund" else "watchlist"
+    with connect() as connection:
+        connection.execute(f"DELETE FROM {table} WHERE code = ?", (code,))
+
+
+def save_fund_holdings(fund_code: str, holdings: list[dict]) -> None:
+    if not holdings:
+        return
+    initialize()
+    with connect() as connection:
+        connection.executemany(
+            """
+            INSERT OR REPLACE INTO fund_holdings
+            (fund_code, report_date, stock_code, stock_name, weight_pct)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                (fund_code, item.get("report_date", "unknown"), item["stock_code"], item["stock_name"], item["weight_pct"])
+                for item in holdings
+            ],
+        )
+
+
+def latest_fund_holdings(fund_code: str) -> list[dict]:
+    initialize()
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT fund_code, report_date, stock_code, stock_name, weight_pct
+            FROM fund_holdings WHERE fund_code = ?
+            ORDER BY report_date DESC, weight_pct DESC LIMIT 10
+            """,
+            (fund_code,),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def save_snapshot(snapshot: dict, bars: list[dict] | None = None) -> None:
@@ -215,16 +299,26 @@ def daily_histories_for_codes(codes: list[str], limit: int = 60) -> dict[str, li
     return histories
 
 
-def recent_signal_events(limit: int = 100) -> list[dict]:
+def recent_signal_events(limit: int = 100, date: str | None = None) -> list[dict]:
     initialize()
     with connect() as connection:
-        rows = connection.execute(
-            """
-            SELECT triggered_at, code, name, rule_name, rule_version, score, evidence, risk, source
-            FROM signal_events ORDER BY triggered_at DESC, score DESC, id DESC LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        if date:
+            rows = connection.execute(
+                """
+                SELECT triggered_at, code, name, rule_name, rule_version, score, direction, evidence, risk, source
+                FROM signal_events WHERE triggered_at LIKE ?
+                ORDER BY triggered_at DESC, score DESC, id DESC LIMIT ?
+                """,
+                (f"{date}%", limit),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                """
+                SELECT triggered_at, code, name, rule_name, rule_version, score, direction, evidence, risk, source
+                FROM signal_events ORDER BY triggered_at DESC, score DESC, id DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
     return [dict(row) for row in rows]
 
 
@@ -262,6 +356,29 @@ def latest_analysis(kind: str) -> dict | None:
     return payload
 
 
+def recent_analyses(kind: str | None = None, limit: int = 20) -> list[dict]:
+    """Return bounded model-run history for the review workspace."""
+    initialize()
+    with connect() as connection:
+        if kind:
+            rows = connection.execute(
+                "SELECT kind, generated_at, payload FROM analysis_runs WHERE kind = ? ORDER BY generated_at DESC, id DESC LIMIT ?",
+                (kind, limit),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT kind, generated_at, payload FROM analysis_runs ORDER BY generated_at DESC, id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+    result = []
+    for row in rows:
+        payload = json.loads(row["payload"])
+        payload["kind"] = row["kind"]
+        payload["generated_at"] = row["generated_at"]
+        result.append(payload)
+    return result
+
+
 def record_rule_events(signals: list[dict], cooldown_minutes: int = 30) -> int:
     """Persist versioned rule outputs with code/rule cooldown deduplication."""
     initialize()
@@ -284,12 +401,12 @@ def record_rule_events(signals: list[dict], cooldown_minutes: int = 30) -> int:
             connection.execute(
                 """
                 INSERT INTO signal_events
-                (triggered_at, code, name, rule_name, rule_version, score, evidence, risk, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (triggered_at, code, name, rule_name, rule_version, score, direction, evidence, risk, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     signal["triggered_at"], signal["code"], signal["name"], signal["rule_name"],
-                    signal["rule_version"], signal["score"], signal["evidence"], signal["risk"], signal["source"],
+                    signal["rule_version"], signal["score"], signal.get("direction", "unknown"), signal["evidence"], signal["risk"], signal["source"],
                 ),
             )
             inserted += 1
@@ -318,12 +435,12 @@ def record_signal_events(snapshot: dict, cooldown_minutes: int = 30) -> int:
             connection.execute(
                 """
                 INSERT INTO signal_events
-                (triggered_at, code, name, rule_name, score, evidence, risk, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (triggered_at, code, name, rule_name, score, direction, evidence, risk, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     snapshot["as_of"], mover["code"], mover["name"], mover["signal"],
-                    mover["score"], mover["note"], mover["risk"], snapshot["source"],
+                    mover["score"], mover.get("direction", "unknown"), mover["note"], mover["risk"], snapshot["source"],
                 ),
             )
             inserted += 1

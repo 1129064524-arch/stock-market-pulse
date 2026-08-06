@@ -6,10 +6,32 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 from api.market_service import is_trading_session, refresh_and_persist
 from api.orchestrator import LLMConfigurationError, LLMProviderError, auto_analysis_enabled, auto_analysis_interval_minutes, run_cross_market_analysis
+from api.collector_manager import Tier, get_collector_manager
+from api.funds import latest_or_refresh as latest_funds_or_refresh
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 _last_auto_analysis_at = 0.0
+
+
+def collect_indices_tick() -> None:
+    if not is_trading_session():
+        return
+    try:
+        indices = get_collector_manager().gather(Tier.INDICES)
+        logger.debug("Collected %d index quotes", len(indices))
+    except Exception as error:
+        logger.warning("Index tier collection skipped: %s", error)
+
+
+def collect_funds_tick() -> None:
+    if not is_trading_session():
+        return
+    try:
+        overview = latest_funds_or_refresh(max_age_seconds=300)
+        logger.debug("Collected fund tier with %d displayed funds", len(overview.get("funds", [])))
+    except Exception as error:
+        logger.warning("Fund tier collection skipped: %s", error)
 
 
 def collect_market_snapshot() -> None:
@@ -45,6 +67,15 @@ def start_background_scheduler() -> BackgroundScheduler:
     """
     scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
     scheduler.add_job(
+        collect_indices_tick,
+        trigger="interval",
+        seconds=10,
+        id="index-quotes",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=5,
+    )
+    scheduler.add_job(
         collect_market_snapshot,
         trigger="interval",
         minutes=1,
@@ -52,6 +83,15 @@ def start_background_scheduler() -> BackgroundScheduler:
         max_instances=1,
         coalesce=True,
         misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        collect_funds_tick,
+        trigger="interval",
+        minutes=5,
+        id="fund-snapshot",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
     )
     scheduler.add_job(
         coordinate_cross_market,
@@ -69,6 +109,15 @@ def start_background_scheduler() -> BackgroundScheduler:
 def run() -> None:
     scheduler = BlockingScheduler(timezone="Asia/Shanghai")
     scheduler.add_job(
+        collect_indices_tick,
+        trigger="interval",
+        seconds=10,
+        id="index-quotes",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=5,
+    )
+    scheduler.add_job(
         collect_market_snapshot,
         trigger="interval",
         minutes=1,
@@ -76,6 +125,15 @@ def run() -> None:
         max_instances=1,
         coalesce=True,
         misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        collect_funds_tick,
+        trigger="interval",
+        minutes=5,
+        id="fund-snapshot",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
     )
     scheduler.add_job(
         coordinate_cross_market,

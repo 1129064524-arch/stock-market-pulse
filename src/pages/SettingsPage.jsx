@@ -1,4 +1,4 @@
-import { Check, CircleAlert, PlugZap, RotateCcw, Save, ShieldCheck } from 'lucide-react'
+import { Check, CircleAlert, Moon, PlugZap, RotateCcw, Save, ShieldCheck, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const emptyForm = {
@@ -11,7 +11,7 @@ const emptyForm = {
   auto_analysis_minutes: 3,
 }
 
-export default function SettingsPage({ onNotice, onSettingsChanged }) {
+export default function SettingsPage({ theme, setTheme, onNotice, onSettingsChanged }) {
   const [form, setForm] = useState(emptyForm)
   const [apiKey, setApiKey] = useState('')
   const [status, setStatus] = useState(null)
@@ -126,6 +126,7 @@ export default function SettingsPage({ onNotice, onSettingsChanged }) {
         <div className="panel-heading compact-heading"><div><h2><Check size={15} />自动统筹</h2><p>定时读取市场证据。</p></div></div>
         <div className="automation-control"><label className="switch-row"><span><strong>盘中自动调用模型</strong><small>仅在交易时段运行，不会触发交易操作。</small></span><input type="checkbox" checked={form.auto_analysis_enabled} onChange={(event) => update('auto_analysis_enabled', event.target.checked)} /><i aria-hidden="true" /></label><label className="settings-field"><span>统筹间隔（分钟）</span><input type="number" min="1" max="60" step="1" value={form.auto_analysis_minutes} onChange={(event) => update('auto_analysis_minutes', Number(event.target.value))} /></label></div>
         <div className="settings-safety"><ShieldCheck size={16} /><div><strong>研究边界</strong><p>只解释本地数据，不生成交易指令。</p></div></div>
+        <div className="appearance-control"><span>界面主题</span><div role="group" aria-label="界面主题"><button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><Sun size={14} />浅色</button><button type="button" className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><Moon size={14} />深色</button></div></div>
       </article>
 
       <div className="settings-actions"><button type="button" className="detail-button" onClick={test} disabled={testState === 'loading' || !status?.configured}><PlugZap size={15} />{testState === 'loading' ? '测试中' : testState === 'success' ? '连接正常' : '测试连接'}</button><button type="button" className="text-button settings-reset" onClick={reset}><RotateCcw size={14} />清除配置</button><button type="submit" className="primary-button" disabled={saveState === 'loading'}><Save size={15} />{saveState === 'loading' ? '保存中' : saveState === 'success' ? '已保存' : '保存设置'}</button></div>

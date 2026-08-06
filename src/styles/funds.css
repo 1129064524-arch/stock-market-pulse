@@ -12,6 +12,8 @@
 .fund-list-row { min-height: 62px; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 11px; }
 .fund-list-row:last-child { border-bottom: 0; }
 .fund-list-row:hover { background: var(--surface-selected); }
+.fund-list-row.selected { background: var(--accent-soft); }
+.fund-list-row:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
 .fund-list-row strong { display: block; color: var(--ink); font-size: 12px; }
 .fund-list-row small { display: block; margin-top: 4px; color: var(--subtle); font-size: 9px; }
 .fund-values strong { font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -26,3 +28,35 @@
 .fund-watch-toggle:hover { color: var(--accent); border-color: #c99c85; }
 .fund-watch-toggle.watched { color: #fff; border-color: var(--accent); background: var(--accent); }
 .fund-disclaimer { margin: 10px 2px 0; color: var(--subtle); font-size: 9px; line-height: 1.5; }
+.fund-holdings-panel { margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.fund-holdings-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px 18px 13px; border-bottom: 1px solid var(--line); }
+.fund-holdings-heading h3 { margin: 4px 0 3px; color: var(--ink); font-size: 15px; font-weight: 700; }
+.fund-holdings-heading h3 small { margin-left: 8px; color: var(--muted); font-size: 10px; font-weight: 500; }
+.fund-holdings-heading p { margin: 0; color: var(--muted); font-size: 10px; }
+.section-kicker { color: var(--accent); font-size: 9px; font-weight: 700; }
+.icon-button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--muted); background: var(--surface); }
+.icon-button:hover { color: var(--ink); border-color: var(--ink-soft); }
+.fund-holdings-meta { display: flex; align-items: center; gap: 20px; padding: 10px 18px; color: var(--muted); background: var(--surface-muted); font-size: 10px; }
+.fund-holdings-meta strong { margin-left: 5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fund-data-note { margin-left: auto; color: var(--subtle); }
+.fund-ai-button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid var(--accent); border-radius: var(--radius); color: var(--accent); background: var(--surface); font-size: 10px; }
+.fund-ai-button:hover { color: #fff; background: var(--accent); }
+.fund-holdings-table-head, .fund-holdings-row { display: grid; grid-template-columns: minmax(200px, 1.6fr) 110px 110px 110px; gap: 16px; align-items: center; padding: 0 18px; }
+.fund-holdings-table-head { height: 30px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 9px; font-weight: 700; }
+.fund-holdings-row { min-height: 49px; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 11px; font-variant-numeric: tabular-nums; }
+.fund-holdings-row:last-child { border-bottom: 0; }
+.fund-holdings-row strong { display: block; color: var(--ink); font-size: 11px; }
+.fund-holdings-row small { display: block; margin-top: 3px; color: var(--subtle); font-size: 9px; }
+.fund-holdings-row > span:not(:first-child) { display: inline-flex; align-items: center; gap: 2px; }
+.fund-holdings-row .fund-up { color: var(--positive); }
+.fund-holdings-row .fund-down { color: var(--negative); }
+.fund-holdings-row .unmatched { color: var(--subtle); }
+.fund-holdings-status { min-height: 72px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 11px; }
+.fund-holdings-status.error { color: var(--warning); background: var(--warning-soft); }
+.fund-analysis-status { display: flex; align-items: center; gap: 7px; padding: 9px 18px; color: var(--warning); background: var(--warning-soft); font-size: 10px; }
+.fund-analysis-result { padding: 12px 18px 14px; border-top: 1px solid var(--line); background: var(--accent-soft); }
+.fund-analysis-result > strong { display: block; color: var(--ink); font-size: 12px; line-height: 1.5; }
+.fund-analysis-result > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 9px; }
+.fund-analysis-result span { color: var(--ink-soft); font-size: 10px; line-height: 1.5; }
+.fund-analysis-result b { display: block; margin-bottom: 2px; color: var(--accent); font-size: 9px; }
+.fund-analysis-result small { display: block; margin-top: 9px; color: var(--muted); font-size: 9px; }

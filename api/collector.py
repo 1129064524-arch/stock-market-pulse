@@ -125,6 +125,20 @@ def _collect_indices() -> list[dict]:
     ]
 
 
+def _collect_indices_with_fallback() -> list[dict]:
+    try:
+        return _collect_indices()
+    except MarketDataError as error:
+        # Keep the stock scan intact when only the Eastmoney index endpoint is
+        # unavailable; Sina returns the same four headline indices as text.
+        try:
+            from api.sina_source import fetch_indices
+
+            return fetch_indices()
+        except MarketDataError:
+            raise error
+
+
 def _collect_stock_page(page: int) -> tuple[int, list[dict]]:
     data = _get_json(
         "clist/get",
@@ -229,7 +243,7 @@ def collect_eastmoney_overview() -> tuple[dict, list[dict]]:
         "market_status": _market_status(now),
         "source": "eastmoney",
         "is_live": _market_status(now) == "trading",
-        "indices": _collect_indices(),
+        "indices": _collect_indices_with_fallback(),
         "advancing": advancing,
         "declining": declining,
         "northbound_flow": "--",

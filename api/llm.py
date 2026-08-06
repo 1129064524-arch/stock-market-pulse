@@ -326,6 +326,24 @@ Return valid JSON only, with this exact schema:
     return _request_json_analysis(system_prompt, context)
 
 
+def analyze_fund(context: dict) -> dict:
+    """Explain a fund using its confirmed report holdings and local market data."""
+    system_prompt = """You are a cautious fund-research assistant for a personal stock-and-fund analysis tool.
+Use only the supplied fund quote, public quarterly holdings, and locally calculated stock contributions.
+Never invent holdings, NAV facts, news, catalysts, or certainty. Report-date holdings are not live portfolio data.
+Do not provide buy, sell, subscribe, redeem, hold, position-size, or guaranteed-return advice.
+Return valid JSON only with this schema:
+{
+  "summary": "one concise Chinese sentence",
+  "evidence": ["up to 3 observations grounded in supplied fields"],
+  "risks": ["up to 3 risks or missing-data warnings"],
+  "next_checks": ["up to 3 neutral checks for the next refresh"],
+  "disclaimer": "固定使用：该分析仅供研究参考，不构成投资建议。"
+}
+"""
+    return _request_json_analysis(system_prompt, context)
+
+
 def analyze_allocation_reference(context: dict) -> dict:
     """Turn normalized sector facts into research-only decision reference cards."""
     system_prompt = """You are a cautious sector research assistant for a personal stock-and-fund analysis tool.

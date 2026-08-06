@@ -13,6 +13,10 @@ try {
 
 const API_PORT = Number(process.env.MARKET_PULSE_API_PORT || 8765)
 let backendProcess
+let mainWindow
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) app.quit()
 
 function backendExecutable() {
   const binaryName = process.platform === 'win32' ? 'market-pulse-api.exe' : 'market-pulse-api'
@@ -63,7 +67,7 @@ function waitForBackend(timeoutMs = 15000) {
 }
 
 async function createWindow() {
-  const window = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1180,
@@ -74,11 +78,18 @@ async function createWindow() {
   const startUrl = process.env.ELECTRON_START_URL || (app.isPackaged
     ? `http://127.0.0.1:${API_PORT}/app/`
     : 'http://127.0.0.1:4175/')
-  await window.loadURL(startUrl)
-  return window
+  await mainWindow.loadURL(startUrl)
+  mainWindow.on('closed', () => { mainWindow = null })
+  return mainWindow
 }
 
-app.whenReady().then(async () => {
+app.on('second-instance', () => {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
+})
+
+if (hasSingleInstanceLock) app.whenReady().then(async () => {
   try {
     startBackend()
     if (app.isPackaged || process.env.MARKET_PULSE_API_EXECUTABLE) await waitForBackend()
@@ -90,6 +101,10 @@ app.whenReady().then(async () => {
     dialog.showErrorBox('Market Pulse 启动失败', error.message)
     app.quit()
   }
+})
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow().catch((error) => dialog.showErrorBox('Market Pulse 启动失败', error.message))
 })
 
 app.on('window-all-closed', () => {

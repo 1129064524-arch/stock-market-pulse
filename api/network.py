@@ -39,7 +39,14 @@ def _build_opener() -> OpenerDirector:
 
 
 def open_url(request: Request, *, timeout: float) -> object:
-    """Open an outbound request using the current process proxy settings."""
+    """Open an outbound request, falling back to direct access if a proxy is down."""
 
-    return _build_opener().open(request, timeout=timeout)
-
+    configured_proxy = proxy_url()
+    try:
+        return _build_opener().open(request, timeout=timeout)
+    except Exception:
+        if not configured_proxy:
+            raise
+        # A stale desktop proxy should not turn every public provider into
+        # demo mode. Empty ProxyHandler disables environment proxy variables.
+        return build_opener(ProxyHandler({})).open(request, timeout=timeout)

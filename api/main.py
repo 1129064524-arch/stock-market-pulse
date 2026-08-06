@@ -11,11 +11,16 @@ from pydantic import BaseModel, Field
 from api.collector import MarketDataError
 from api.decision import build_decision_reference
 from api.funds import latest_or_refresh as latest_funds_or_refresh
-from api.llm import analyze_market, analyze_signal, get_settings, public_settings, reset_settings, test_connection, update_settings
+from api.llm import analyze_fund, analyze_market, analyze_signal, get_settings, public_settings, reset_settings, test_connection, update_settings
 from api.indicators import summarize_bars, summarize_daily_bars
 from api.linkage import build_cross_market_overview
 from api.history import fetch_daily_bars
+from api.fund_holdings import calculate_holdings_pct, fetch_fund_holdings
 from api.market_service import is_trading_session, latest_or_refresh, refresh_and_persist
+from api.models.fund import HoldingItem
+from api.models.linkage import LinkedStock
+from api.models.quote import Bar, MarketSnapshot, Mover, SectorStat, StockDetail, StockSummary
+from api.models.signal import SignalEvent, SignalStats
 from api.orchestrator import (
     LLMConfigurationError,
     LLMProviderError,
@@ -25,7 +30,7 @@ from api.orchestrator import (
     run_cross_market_analysis,
 )
 from api.rules import RULE_CATALOG, evaluate_rules, select_active_signals
-from api.storage import daily_histories_for_codes, initialize, recent_bars, recent_daily_bars, recent_signal_events, save_daily_bars
+from api.storage import daily_histories_for_codes, delete_watchlist_item, initialize, latest_analysis, list_watchlist, recent_analyses, recent_bars, recent_daily_bars, recent_signal_events, save_analysis, save_daily_bars, save_watchlist_item
 
 
 class MarketIndex(BaseModel):
@@ -146,7 +151,7 @@ class DecisionReference(BaseModel):
 class MarketOverview(BaseModel):
     as_of: datetime
     market_status: Literal["trading", "closed"]
-    source: Literal["eastmoney", "sample", "cache"]
+    source: Literal["akshare", "eastmoney", "sample", "cache"]
     is_live: bool
     indices: list[MarketIndex]
     advancing: int
@@ -162,6 +167,16 @@ class WatchItem(BaseModel):
     reason: str
 
 
+class WatchlistUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class WatchlistRecord(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$")
+    name: str
+    added_at: str
+
+
 class MarketAnalysis(BaseModel):
     stance: Literal["偏强", "中性", "谨慎", "偏弱"]
     summary: str = Field(max_length=200)
@@ -169,6 +184,14 @@ class MarketAnalysis(BaseModel):
     risks: list[str] = Field(max_length=3)
     watchlist: list[WatchItem] = Field(max_length=3)
     disclaimer: str
+
+
+class FundAnalysis(BaseModel):
+    summary: str = Field(max_length=240)
+    evidence: list[str] = Field(max_length=3)
+    risks: list[str] = Field(max_length=3)
+    next_checks: list[str] = Field(max_length=3)
+    disclaimer: str = Field(max_length=80)
 
 
 class RuleSignal(BaseModel):
@@ -273,6 +296,179 @@ def sample_overview() -> MarketOverview:
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _v1_number(value: object) -> float:
+    """Parse the display-oriented values used by the legacy API models."""
+    try:
+        return float(str(value or "0").replace(",", "").replace("%", "").replace("亿", ""))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _v1_summary(bar: dict) -> StockSummary:
+    return StockSummary(
+        code=str(bar["code"]),
+        name=str(bar.get("name") or bar["code"]),
+        price=float(bar.get("price") or 0),
+        change_pct=float(bar.get("change_pct") or 0),
+        amount=float(bar.get("amount") or 0),
+        turnover=float(bar.get("turnover") or 0),
+        sector=str(bar.get("industry") or "全市场"),
+    )
+
+
+@app.get("/api/v1/system/health")
+def v1_health() -> dict[str, str]:
+    return health()
+
+
+@app.get("/api/v1/watchlist/{asset_type}", response_model=list[WatchlistRecord])
+def v1_watchlist(asset_type: Literal["stock", "fund"]) -> list[WatchlistRecord]:
+    return [WatchlistRecord.model_validate(item) for item in list_watchlist(asset_type)]
+
+
+@app.put("/api/v1/watchlist/{asset_type}/{code}", response_model=WatchlistRecord)
+def v1_save_watchlist(asset_type: Literal["stock", "fund"], code: str, request: WatchlistUpdate) -> WatchlistRecord:
+    if not code.isdigit() or len(code) != 6:
+        raise HTTPException(status_code=422, detail="代码必须是 6 位数字")
+    return WatchlistRecord.model_validate(save_watchlist_item(asset_type, code, request.name.strip()))
+
+
+@app.delete("/api/v1/watchlist/{asset_type}/{code}", status_code=204)
+def v1_delete_watchlist(asset_type: Literal["stock", "fund"], code: str) -> None:
+    if not code.isdigit() or len(code) != 6:
+        raise HTTPException(status_code=422, detail="代码必须是 6 位数字")
+    delete_watchlist_item(asset_type, code)
+
+
+@app.get("/api/v1/market/snapshot", response_model=MarketSnapshot)
+def v1_market_snapshot() -> MarketSnapshot:
+    snapshot = market_overview()
+    indices = {index.name: _v1_number(index.value) for index in snapshot.indices}
+    bars = recent_bars_for_snapshot(snapshot.model_dump(mode="json"))
+    return MarketSnapshot(
+        captured_at=snapshot.as_of.isoformat(),
+        indices=indices,
+        total_amount=sum(float(bar.get("amount") or 0) for bar in bars),
+        up_count=snapshot.advancing,
+        down_count=snapshot.declining,
+    )
+
+
+@app.get("/api/v1/market/stocks", response_model=list[StockSummary])
+def v1_market_stocks() -> list[StockSummary]:
+    snapshot = market_overview()
+    bars = recent_bars_for_snapshot(snapshot.model_dump(mode="json"))
+    if bars:
+        return [_v1_summary(bar) for bar in bars]
+    return [
+        StockSummary(
+            code=mover.code,
+            name=mover.name,
+            price=_v1_number(mover.price),
+            change_pct=_v1_number(mover.change),
+            sector=mover.sector,
+        )
+        for mover in snapshot.movers
+    ]
+
+
+@app.get("/api/v1/market/stocks/{code}", response_model=StockDetail)
+def v1_stock_detail(code: str) -> StockDetail:
+    if not code.isdigit() or len(code) != 6:
+        raise HTTPException(status_code=422, detail="股票代码必须是 6 位数字")
+    snapshot = market_overview()
+    bars = [bar for bar in recent_bars_for_snapshot(snapshot.model_dump(mode="json")) if bar["code"] == code]
+    if bars:
+        return StockDetail(**_v1_summary(bars[-1]).model_dump())
+    mover = next((item for item in snapshot.movers if item.code == code), None)
+    if mover is None:
+        raise HTTPException(status_code=404, detail="当前快照没有该股票")
+    return StockDetail(
+        code=code,
+        name=mover.name,
+        price=_v1_number(mover.price),
+        change_pct=_v1_number(mover.change),
+        sector=mover.sector,
+    )
+
+
+@app.get("/api/v1/market/stocks/{code}/bars", response_model=list[Bar])
+def v1_stock_bars(code: str, days: int = 60) -> list[Bar]:
+    if not code.isdigit() or len(code) != 6:
+        raise HTTPException(status_code=422, detail="股票代码必须是 6 位数字")
+    bars = recent_daily_bars(code, min(max(days, 1), 1000))
+    return [
+        Bar(
+            date=str(bar["trading_date"]),
+            open=float(bar["open"]),
+            high=float(bar["high"]),
+            low=float(bar["low"]),
+            close=float(bar["close"]),
+            volume=float(bar["volume"]),
+            amount=float(bar["amount"]),
+        )
+        for bar in bars
+    ]
+
+
+@app.get("/api/v1/market/sectors", response_model=list[SectorStat])
+def v1_market_sectors() -> list[SectorStat]:
+    snapshot = market_overview()
+    result = []
+    for sector in snapshot.sectors:
+        parts = sector.stocks.split("/", 1)
+        up_count = int(_v1_number(parts[0])) if parts else 0
+        stock_count = int(_v1_number(parts[1])) if len(parts) > 1 else 0
+        result.append(SectorStat(
+            name=sector.name,
+            avg_pct=_v1_number(sector.change),
+            up_ratio=up_count / stock_count if stock_count else 0,
+            stock_count=stock_count,
+        ))
+    return result
+
+
+@app.get("/api/v1/market/movers", response_model=list[Mover])
+def v1_market_movers() -> list[Mover]:
+    snapshot = market_overview()
+    return [Mover(
+        code=item.code,
+        name=item.name,
+        price=_v1_number(item.price),
+        change_pct=_v1_number(item.change),
+        reason=item.signal,
+    ) for item in snapshot.movers]
+
+
+@app.get("/api/v1/funds/{code}/holdings", response_model=list[HoldingItem])
+def v1_fund_holdings(code: str) -> list[HoldingItem]:
+    try:
+        return [HoldingItem.model_validate(item) for item in fetch_fund_holdings(code)]
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except MarketDataError as error:
+        raise HTTPException(status_code=502, detail={"code": "fund_holdings_unavailable", "message": str(error)}) from error
+
+
+@app.get("/api/v1/linkage/fund/{code}/stocks", response_model=list[LinkedStock])
+def v1_fund_linked_stocks(code: str) -> list[LinkedStock]:
+    holdings = [item.model_dump() for item in v1_fund_holdings(code)]
+    snapshot = market_overview()
+    bars = recent_bars_for_snapshot(snapshot.model_dump(mode="json"))
+    stock_prices = {str(bar["code"]): float(bar.get("change_pct") or 0) for bar in bars}
+    penetration = calculate_holdings_pct(holdings, stock_prices)
+    return [
+        LinkedStock(
+            code=item["stock_code"],
+            name=item["stock_name"],
+            weight_pct=item["weight_pct"],
+            change_pct=item["change_pct"],
+            contribution=item["contribution"],
+        )
+        for item in penetration["contributors"]
+    ]
 
 
 @app.get("/api/market/overview", response_model=MarketOverview)
@@ -393,6 +589,62 @@ def current_signals(limit: int = 160) -> list[RuleSignal]:
     return [RuleSignal.model_validate(signal) for signal in select_active_signals(signals, limit)]
 
 
+def _v1_signal(signal: RuleSignal) -> SignalEvent:
+    return SignalEvent(
+        code=signal.code,
+        name=signal.name,
+        rule_name=signal.rule_name,
+        rule_version=signal.rule_version,
+        score=signal.score,
+        direction="bullish" if signal.direction == "up" else "bearish",
+        evidence={"text": signal.evidence, "price": signal.price, "change": signal.change},
+        risk_note=signal.risk,
+        triggered_at=signal.triggered_at.isoformat(),
+    )
+
+
+@app.get("/api/v1/signals/latest", response_model=list[SignalEvent])
+def v1_latest_signals(limit: int = 50) -> list[SignalEvent]:
+    return [_v1_signal(signal) for signal in current_signals(min(max(limit, 1), 300))]
+
+
+@app.get("/api/v1/signals/history", response_model=list[SignalEvent])
+def v1_signal_history(limit: int = 100, date: str | None = None) -> list[SignalEvent]:
+    """Return persisted, cooldown-deduplicated signals for audit and review."""
+    if date and (len(date) != 10 or date[4] != "-" or date[7] != "-"):
+        raise HTTPException(status_code=422, detail="date 必须使用 YYYY-MM-DD 格式")
+    events = recent_signal_events(min(max(limit, 1), 500), date=date)
+    return [SignalEvent(
+        code=str(event["code"]),
+        name=event["name"],
+        rule_name=event["rule_name"],
+        rule_version=event.get("rule_version") or "legacy",
+        score=float(event["score"]),
+        direction=event.get("direction") or "unknown",
+        evidence={"text": event["evidence"], "source": event["source"]},
+        risk_note=event["risk"],
+        triggered_at=event["triggered_at"],
+    ) for event in events]
+
+
+@app.get("/api/v1/signals/stats", response_model=SignalStats)
+def v1_signal_stats() -> SignalStats:
+    signals = v1_latest_signals(300)
+    rule_counts: dict[str, int] = {}
+    for signal in signals:
+        rule_counts[signal.rule_name] = rule_counts.get(signal.rule_name, 0) + 1
+    top_rules = [
+        {"rule": rule, "count": count}
+        for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    return SignalStats(
+        total_today=len(signals),
+        bullish_count=sum(signal.direction == "bullish" for signal in signals),
+        bearish_count=sum(signal.direction == "bearish" for signal in signals),
+        top_rules=top_rules,
+    )
+
+
 def recent_bars_for_snapshot(snapshot: dict) -> list[dict]:
     """All-market bars are stored under the snapshot timestamp, not per stock request."""
     from api.storage import snapshot_bars
@@ -457,6 +709,53 @@ def market_analysis() -> MarketAnalysis:
         ) from error
 
 
+@app.post("/api/v1/analysis/funds/{code}", response_model=FundAnalysis)
+def fund_analysis(code: str) -> FundAnalysis:
+    """Analyze one fund from its quote, report holdings and local contributions."""
+    if not code.isdigit() or len(code) != 6:
+        raise HTTPException(status_code=422, detail="基金代码必须是 6 位数字")
+    overview = FundOverview.model_validate(latest_funds_or_refresh()).model_dump(mode="json")
+    fund = next((item for item in overview["funds"] if item["code"] == code), None)
+    if fund is None:
+        raise HTTPException(status_code=404, detail="当前基金快照没有该基金")
+    holdings = [item.model_dump() for item in v1_fund_holdings(code)]
+    snapshot = market_overview()
+    bars = recent_bars_for_snapshot(snapshot.model_dump(mode="json"))
+    stock_prices = {str(bar["code"]): float(bar.get("change_pct") or 0) for bar in bars}
+    penetration = calculate_holdings_pct(holdings, stock_prices)
+    context = {
+        "as_of": overview["as_of"],
+        "fund": fund,
+        "holdings": holdings,
+        "penetration": penetration,
+        "market": {"as_of": snapshot.as_of.isoformat(), "source": snapshot.source, "indices": [item.model_dump() for item in snapshot.indices]},
+    }
+    try:
+        result = FundAnalysis.model_validate(analyze_fund(context))
+        save_analysis(f"fund:{code}", result.model_dump())
+        return result
+    except LLMConfigurationError as error:
+        raise HTTPException(status_code=503, detail={"code": "llm_not_configured", "message": "请先在设置中配置模型通道。"}) from error
+    except LLMProviderError as error:
+        raise HTTPException(status_code=502, detail={"code": "llm_provider_error", "message": "模型服务暂时不可用，请检查通道配置。"}) from error
+
+
+@app.get("/api/v1/analysis/funds/{code}/latest", response_model=FundAnalysis)
+def latest_fund_analysis(code: str) -> FundAnalysis:
+    if not code.isdigit() or len(code) != 6:
+        raise HTTPException(status_code=422, detail="基金代码必须是 6 位数字")
+    result = latest_analysis(f"fund:{code}")
+    if result is None:
+        raise HTTPException(status_code=404, detail="该基金尚未生成研判")
+    return FundAnalysis.model_validate(result)
+
+
+@app.get("/api/v1/analysis/history", response_model=list[dict[str, object]])
+def analysis_history(kind: str | None = None, limit: int = 20) -> list[dict[str, object]]:
+    allowed = {"market", "cross_market", "cross-market", "decision_reference"}
+    if kind and not (kind in allowed or kind.startswith("fund:")):
+        raise HTTPException(status_code=422, detail="不支持的研判类型")
+    return recent_analyses(kind, min(max(limit, 1), 100))
 @app.post("/api/analysis/signals", response_model=SignalResearch)
 def signal_analysis(request: SignalAnalysisRequest) -> SignalResearch:
     """Generate a bounded research checklist for one selected, explainable rule signal."""

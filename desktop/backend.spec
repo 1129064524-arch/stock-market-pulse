@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import collect_submodules
 
 
 project_root = Path(SPECPATH).parent
-hiddenimports = collect_submodules("api") + [
+hiddenimports = collect_submodules("api") + collect_submodules("akshare") + [
     "uvicorn.logging",
     "uvicorn.loops.auto",
     "uvicorn.protocols.http.auto",

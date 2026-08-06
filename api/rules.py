@@ -9,13 +9,15 @@ from __future__ import annotations
 from statistics import fmean
 from typing import Iterable
 
+from api.indicators import macd, volume_ratio
+
 
 RULE_CATALOG = [
     {
         "name": "volume_breakout",
         "label": "量价突破",
         "version": "v1",
-        "description": "涨幅与换手率同时明显抬升。",
+        "description": "涨幅、换手率与可用的 20 日量比同步抬升。",
     },
     {
         "name": "sector_resonance",
@@ -27,13 +29,13 @@ RULE_CATALOG = [
         "name": "daily_trend",
         "label": "日线趋势向上",
         "version": "v1",
-        "description": "收盘价、5 日均线和 20 日均线保持多头排列。",
+        "description": "收盘价、5 日均线、20 日均线和可用的 MACD/连续阳线保持一致。",
     },
     {
         "name": "risk_breakdown",
         "label": "下行风险",
         "version": "v1",
-        "description": "显著下跌或日线空头排列，提示继续观察承接。",
+        "description": "显著下跌或连续阴线空头排列，提示继续观察承接。",
     },
 ]
 
@@ -101,14 +103,23 @@ def _sector_context(bars: Iterable[dict]) -> dict[str, dict[str, float]]:
     }
 
 
-def _daily_trend(bars: list[dict]) -> tuple[float, float, float] | None:
+def _daily_context(bars: list[dict]) -> dict[str, float | bool | None] | None:
     if len(bars) < 20:
         return None
     closes = [_number(bar.get("close")) for bar in bars]
     last_close = closes[-1]
     ma5 = fmean(closes[-5:])
     ma20 = fmean(closes[-20:])
-    return last_close, ma5, ma20
+    daily_macd = macd(closes)
+    return {
+        "close": last_close,
+        "ma5": ma5,
+        "ma20": ma20,
+        "three_up": all(closes[index] > closes[index - 1] for index in range(len(closes) - 2, len(closes))),
+        "three_down": all(closes[index] < closes[index - 1] for index in range(len(closes) - 2, len(closes))),
+        "macd_histogram": daily_macd["histogram"],
+        "volume_ratio": volume_ratio(bars),
+    }
 
 
 def evaluate_rules(
@@ -123,15 +134,18 @@ def evaluate_rules(
         change = _number(bar.get("change_pct"))
         turnover = _number(bar.get("turnover"))
         industry = str(bar.get("industry") or "全市场")
+        daily_context = _daily_context(daily_histories.get(str(bar["code"]), []))
+        volume_multiple = daily_context["volume_ratio"] if daily_context else None
 
-        if change >= 4.5 and turnover >= 4:
-            score = 64 + min(change * 2.5, 20) + min(turnover * 1.25, 12)
+        if change >= 4.5 and turnover >= 4 and (volume_multiple is None or volume_multiple >= 1.5):
+            volume_note = f"，20 日量比 {volume_multiple:.2f}" if volume_multiple is not None else "，日线量比待补"
+            score = 64 + min(change * 2.5, 20) + min(turnover * 1.25, 12) + (min(volume_multiple * 3, 10) if volume_multiple is not None else 0)
             signals.append(
                 _signal(
                     bar,
                     "volume_breakout",
                     score,
-                    f"涨幅 {change:+.2f}%，换手率 {turnover:.1f}% 同步抬升。",
+                    f"涨幅 {change:+.2f}%，换手率 {turnover:.1f}% 同步抬升{volume_note}。",
                     "短线乖离可能扩大，需继续观察成交承接。",
                     "up",
                 )
@@ -151,26 +165,26 @@ def evaluate_rules(
                 )
             )
 
-        trend = _daily_trend(daily_histories.get(str(bar["code"]), []))
-        if trend is not None and trend[0] > trend[1] > trend[2]:
-            close, ma5, ma20 = trend
+        trend = daily_context
+        if trend is not None and trend["close"] > trend["ma5"] > trend["ma20"] and trend["three_up"] and (trend["macd_histogram"] is None or trend["macd_histogram"] > 0):
+            close, ma5, ma20 = trend["close"], trend["ma5"], trend["ma20"]
             separation = ((close / ma20) - 1) * 100 if ma20 else 0
             signals.append(
                 _signal(
                     bar,
                     "daily_trend",
                     70 + min(max(separation, 0) * 2, 20),
-                    f"日线收盘 {close:.2f} > MA5 {ma5:.2f} > MA20 {ma20:.2f}。",
+                    f"日线收盘 {close:.2f} > MA5 {ma5:.2f} > MA20 {ma20:.2f}，连续阳线 {trend['three_up']}。",
                     "日线趋势不等于盘中持续走强，仍需结合量能验证。",
                     "up",
                 )
             )
-        elif change <= -4 or (trend is not None and trend[0] < trend[1] < trend[2]):
+        elif change <= -4 or (trend is not None and trend["close"] < trend["ma5"] < trend["ma20"] and trend["three_down"]):
             reasons = []
             if change <= -4:
                 reasons.append(f"盘中涨跌幅 {change:+.2f}%")
-            if trend is not None and trend[0] < trend[1] < trend[2]:
-                close, ma5, ma20 = trend
+            if trend is not None and trend["close"] < trend["ma5"] < trend["ma20"] and trend["three_down"]:
+                close, ma5, ma20 = trend["close"], trend["ma5"], trend["ma20"]
                 reasons.append(f"日线收盘 {close:.2f} < MA5 {ma5:.2f} < MA20 {ma20:.2f}")
             signals.append(
                 _signal(

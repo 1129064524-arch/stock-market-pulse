@@ -27,6 +27,30 @@
   --info: #4a5758;
   --radius: 3px;
 }
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111516;
+  --surface: #1a1f20;
+  --surface-muted: #222829;
+  --surface-selected: #302620;
+  --sidebar: #0d1011;
+  --sidebar-line: #2d3435;
+  --ink: #f0f2ef;
+  --ink-soft: #c1c9c6;
+  --muted: #939e9b;
+  --subtle: #75807d;
+  --line: #343b3b;
+  --line-strong: #4a5552;
+  --accent: #c77750;
+  --accent-soft: #38271f;
+  --positive: #ef7068;
+  --positive-soft: #3a2323;
+  --negative: #46b68e;
+  --negative-soft: #17342b;
+  --warning: #d5a44e;
+  --warning-soft: #382f1d;
+  --info: #a6b0ae;
+}
 * { box-sizing: border-box; }
 html, body, #root { min-width: 1180px; min-height: 100%; }
 body { margin: 0; background: var(--bg); }
