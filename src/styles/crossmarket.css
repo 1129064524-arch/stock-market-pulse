@@ -1,0 +1,44 @@
+.cross-market-page { min-height: 620px; }
+.cross-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.cross-summary > div { min-height: 76px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 12px 15px; border-right: 1px solid var(--line); }
+.cross-summary > div:last-child { border-right: 0; }
+.cross-summary span, .cross-summary small { color: var(--muted); font-size: 10px; }
+.cross-summary strong { color: var(--ink); font-size: 19px; font-variant-numeric: tabular-nums; }
+.cross-risk-number { color: var(--negative) !important; }
+.cross-ai-panel { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 12px; padding: 11px 16px; }
+.cross-ai-title { display: flex; align-items: center; gap: 7px; color: var(--accent); }
+.cross-ai-title strong { color: var(--ink); font-size: 12px; }
+.cross-ai-panel p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+.cross-ai-actions { display: flex; align-items: center; gap: 10px; }
+.cross-analysis-result { display: grid; grid-template-columns: 72px minmax(180px, 1.2fr) repeat(4, minmax(130px, 1fr)); margin-bottom: 12px; border-color: #dfbba8; }
+.cross-regime { align-self: start; justify-self: center; margin-top: 15px; padding: 4px 7px; border-radius: 2px; color: var(--accent); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
+.cross-regime.股基共振, .cross-regime.股票偏强, .cross-regime.基金偏强 { color: var(--positive); background: var(--positive-soft); }
+.cross-regime.同步偏弱, .cross-regime.明显分化 { color: var(--negative); background: var(--negative-soft); }
+.cross-analysis-summary, .cross-analysis-column { min-height: 106px; padding: 14px; border-left: 1px solid var(--line); }
+.cross-analysis-summary strong { display: block; color: var(--ink); font-size: 11px; line-height: 1.45; }
+.cross-analysis-summary span { display: block; margin-top: 7px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.cross-analysis-column h3 { margin: 0 0 7px; color: var(--ink-soft); font-size: 10px; }
+.cross-analysis-column ul { display: grid; gap: 5px; padding: 0; margin: 0; list-style: none; }
+.cross-analysis-column li { color: var(--muted); font-size: 9px; line-height: 1.45; }
+.cross-analysis-column li::before { content: '•'; padding-right: 4px; color: var(--accent); }
+.cross-analysis-error { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; padding: 13px 16px; color: var(--negative); font-size: 10px; }
+.cross-market-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.cross-side-panel { min-width: 0; }
+.cross-side-panel .panel-heading h2 { display: inline-flex; align-items: center; gap: 6px; }
+.cross-list-header, .cross-list-row { display: grid; grid-template-columns: minmax(130px, 1.2fr) minmax(84px, .9fr) minmax(78px, .8fr) 72px; gap: 12px; align-items: center; padding: 0 16px; }
+.cross-list-header { height: 31px; color: var(--muted); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-muted); font-size: 9px; font-weight: 700; }
+.cross-list-row { min-height: 49px; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 10px; }
+.cross-list-row:last-child { border-bottom: 0; }
+.cross-list-row strong { display: block; color: var(--ink); font-size: 11px; }
+.cross-list-row small { display: block; margin-top: 3px; color: var(--subtle); font-size: 9px; }
+.cross-list-row .price { justify-self: end; }
+.linkage-panel { overflow: hidden; }
+.linkage-panel .panel-heading h2 { display: inline-flex; align-items: center; gap: 6px; }
+.linkage-header, .linkage-row { display: grid; grid-template-columns: 1.1fr .7fr .7fr 1.5fr 1fr 90px; gap: 14px; align-items: center; padding: 0 16px; }
+.linkage-header { height: 33px; color: var(--muted); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-muted); font-size: 9px; font-weight: 700; }
+.linkage-row { min-height: 54px; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 10px; }
+.linkage-row strong { color: var(--ink); font-size: 11px; }
+.linkage-state { color: var(--muted); }
+.linkage-state.positive { color: var(--positive); }
+.linkage-state.risk { color: var(--negative); }
+.linkage-note { min-height: 34px; display: flex; align-items: center; padding: 0 16px; color: var(--subtle); border-top: 1px solid var(--line); font-size: 9px; }

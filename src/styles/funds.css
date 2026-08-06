@@ -1,0 +1,28 @@
+.funds-page { min-height: 560px; }
+.fund-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.fund-strip > div { min-height: 72px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 11px 15px; border-right: 1px solid var(--line); }
+.fund-strip > div:last-child { border-right: 0; }
+.fund-strip span, .fund-strip small { color: var(--muted); font-size: 10px; }
+.fund-strip strong { color: var(--ink); font-size: 17px; font-variant-numeric: tabular-nums; }
+.fund-strip .fund-up { color: var(--positive); }
+.fund-strip .fund-down { color: var(--negative); }
+.fund-list { overflow: hidden; }
+.fund-list-header, .fund-list-row { display: grid; grid-template-columns: minmax(170px, 1.25fr) minmax(120px, .85fr) 100px 82px 84px minmax(150px, 1fr) 42px; gap: 14px; align-items: center; padding: 0 16px; }
+.fund-list-header { height: 34px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--surface-muted); font-size: 10px; font-weight: 700; }
+.fund-list-row { min-height: 62px; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 11px; }
+.fund-list-row:last-child { border-bottom: 0; }
+.fund-list-row:hover { background: var(--surface-selected); }
+.fund-list-row strong { display: block; color: var(--ink); font-size: 12px; }
+.fund-list-row small { display: block; margin-top: 4px; color: var(--subtle); font-size: 9px; }
+.fund-values strong { font-size: 13px; font-variant-numeric: tabular-nums; }
+.fund-return small, .fund-period small, .fund-signal small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+.fund-period strong { color: var(--ink-soft); font-size: 10px; font-variant-numeric: tabular-nums; }
+.fund-signal { min-width: 0; }
+.fund-signal small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fund-type, .fund-state { display: inline-flex; width: fit-content; padding: 3px 6px; border-radius: 2px; color: var(--ink-soft); background: var(--surface-muted); font-size: 10px; }
+.fund-state.eastmoney { color: var(--positive); background: var(--positive-soft); }
+.fund-risk { color: var(--muted); line-height: 1.45; }
+.fund-watch-toggle { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--muted); background: var(--surface); }
+.fund-watch-toggle:hover { color: var(--accent); border-color: #c99c85; }
+.fund-watch-toggle.watched { color: #fff; border-color: var(--accent); background: var(--accent); }
+.fund-disclaimer { margin: 10px 2px 0; color: var(--subtle); font-size: 9px; line-height: 1.5; }

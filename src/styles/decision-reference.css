@@ -1,0 +1,43 @@
+.decision-reference { margin-bottom: 12px; }
+.decision-reference-page { min-height: 620px; }
+.decision-page-heading { display: none; }
+.decision-page-kicker { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; color: var(--accent); font-size: 10px; font-weight: 650; }
+.decision-page-heading h2 { margin: 0 0 5px; color: var(--ink); font-size: 20px; }
+.decision-page-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+.decision-reference-page .decision-heading { padding-top: 10px; border-top: 1px solid var(--line); }
+.decision-heading { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 9px; }
+.decision-heading h2 { display: flex; align-items: center; gap: 7px; margin: 0 0 4px; color: var(--ink); font-size: 14px; }
+.decision-heading h2 svg { color: var(--accent); }
+.decision-heading p { margin: 0; color: var(--muted); font-size: 10px; }
+.decision-heading-actions { display: flex; align-items: center; gap: 8px; }
+.decision-source { display: inline-flex; align-items: center; height: 25px; padding: 0 7px; border: 1px solid var(--line); border-radius: var(--radius); color: var(--muted); background: var(--surface); font-size: 9px; font-weight: 650; }
+.decision-source.llm { color: var(--positive); border-color: #dfbba8; background: var(--positive-soft); }
+.decision-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.decision-card { min-height: 174px; padding: 14px 15px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.decision-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.decision-card h3 { margin: 0; color: var(--ink); font-size: 12px; }
+.decision-tag { display: inline-flex; align-items: center; height: 23px; padding: 0 7px; border-radius: 11px; font-size: 9px; font-weight: 700; }
+.decision-tag.priority { color: var(--positive); background: var(--positive-soft); }
+.decision-tag.verify, .decision-tag.trend { color: var(--warning); background: var(--warning-soft); }
+.decision-tag.risk { color: var(--negative); background: var(--negative-soft); }
+.decision-tag.neutral { color: var(--info); background: var(--surface-muted); }
+.decision-metrics { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.decision-metrics span { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.decision-metrics small { color: var(--subtle); font-size: 9px; }
+.decision-metrics strong { color: var(--ink-soft); font-size: 10px; font-variant-numeric: tabular-nums; }
+.decision-card > p { max-width: 74ch; min-height: 42px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.55; text-wrap: pretty; }
+.decision-risk { display: flex; align-items: flex-start; gap: 5px; margin-top: 9px; color: var(--warning); }
+.decision-risk svg { flex: 0 0 auto; margin-top: 1px; }
+.decision-risk span { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.decision-empty, .decision-error { min-height: 104px; display: flex; align-items: center; gap: 10px; padding: 18px; border: 1px dashed var(--line-strong); color: var(--accent); background: var(--surface); }
+.decision-empty strong { display: block; color: var(--ink); font-size: 11px; }
+.decision-empty p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+.decision-error { min-height: 54px; color: var(--negative); border-style: solid; font-size: 10px; }
+.decision-disclaimer { display: flex; justify-content: space-between; gap: 16px; margin-top: 7px; color: var(--subtle); font-size: 9px; }
+.decision-skeleton { min-height: 174px; padding: 15px; border: 1px solid var(--line); background: var(--surface); }
+.decision-skeleton i { display: block; height: 10px; margin-bottom: 14px; background: #e3e6e3; animation: decision-pulse 1.2s ease-in-out infinite; }
+.decision-skeleton i:nth-child(1) { width: 32%; }
+.decision-skeleton i:nth-child(2) { width: 78%; }
+.decision-skeleton i:nth-child(3) { width: 94%; }
+@keyframes decision-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .decision-skeleton i { animation: none; } }

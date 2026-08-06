@@ -1,0 +1,52 @@
+{
+  "name": "market-pulse",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local stock and fund market research workspace",
+  "author": "Market Pulse",
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "api": ".venv/bin/uvicorn api.main:app --reload --host 127.0.0.1 --port 8000",
+    "scheduler": ".venv/bin/python -m api.scheduler",
+    "build": "vite build",
+    "preview": "vite preview",
+    "desktop:build": "npm run build && .venv/bin/python -m PyInstaller --noconfirm --clean --distpath build/backend --workpath build/pyinstaller desktop/backend.spec",
+    "desktop:release": "npm run desktop:build && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
+    "electron-updater": "^6.6.2"
+  },
+  "build": {
+    "appId": "com.marketpulse.desktop",
+    "productName": "Market Pulse",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "dist", "to": "web" },
+      { "from": "build/backend", "to": "backend" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

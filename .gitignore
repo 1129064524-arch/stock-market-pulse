@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.venv/
+.env
+data/*.sqlite3
+.DS_Store
+__pycache__/
+*.py[cod]

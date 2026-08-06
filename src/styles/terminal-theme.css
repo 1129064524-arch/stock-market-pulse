@@ -1,0 +1,37 @@
+/* Institutional research-terminal treatment: restrained copper, graphite and market semantics. */
+body { background: var(--bg); }
+.sidebar { border-right-color: #0d1011; }
+.brand-mark { background: var(--accent); }
+.nav-item { color: #aeb7b5; }
+.nav-item:hover { color: #f6f3ed; background: #222827; }
+.nav-item.active { background: #2b2522; border-color: #8f5338; box-shadow: inset 2px 0 0 #d18a64; }
+.nav-item.active svg { color: #e0a17e; }
+.topbar { background: rgba(251, 251, 248, .97); }
+.market-strip, .panel, .watch-item, .review-note { border-color: var(--line); }
+.market-strip { background: var(--surface); }
+.market-card.main-index { background: #f3eee9; }
+.market-breadth .breadth-bar { background: #dfe3df; }
+.breadth-bar i, .score b { background: var(--accent); }
+.filter-button:hover, .detail-button:hover { border-color: #8f9a96; }
+.primary-button:hover { background: #8f4d30; }
+.panel-footer button:hover, .text-button:hover { color: #8f4d30; }
+.explanation { border-color: #dfbba8; background: var(--accent-soft); }
+.explanation strong { color: #8f4d30; }
+.signal-ai-button { border-color: #dfbba8; color: #8f4d30; background: var(--accent-soft); }
+.signal-ai-button:hover { background: #eed9cc; }
+.signal-chip { background: #edf0ed; }
+.signal-chip.up { color: var(--positive); background: var(--positive-soft); }
+.signal-chip.down { color: var(--negative); background: var(--negative-soft); }
+.selected-row, tbody tr:hover { background: var(--surface-selected); }
+.alert-editor { border-color: #dfbba8; }
+.avatar { border-color: #d8b8a6; }
+.toast { background: #292525; }
+.daily-chart.candles { height: 145px; }
+.daily-chart.candles .chart-grid { stroke: #ddd6d0; stroke-dasharray: 3 5; }
+.daily-chart.candles .chart-axis { stroke: var(--line); }
+.daily-chart.candles .candle-wick { stroke-width: 1.25; }
+.daily-chart.candles .candle-wick.up, .daily-chart.candles .candle-body.up { stroke: var(--positive); fill: var(--positive); }
+.daily-chart.candles .candle-wick.down, .daily-chart.candles .candle-body.down { stroke: var(--negative); fill: var(--negative); }
+.daily-chart.candles .candle-body { fill-opacity: .8; }
+.daily-chart.candles .last-price-line { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.daily-chart.candles .last-price-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
