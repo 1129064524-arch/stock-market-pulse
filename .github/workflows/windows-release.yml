@@ -39,7 +39,7 @@ jobs:
           npm run build
 
       - name: Build Windows installer
-        run: npx electron-builder --win nsis
+        run: npx electron-builder --win nsis --publish never
 
       - name: Verify installer output
         shell: pwsh
