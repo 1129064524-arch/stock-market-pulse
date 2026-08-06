@@ -1,7 +1,7 @@
 {
   "name": "market-pulse",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local stock and fund market research workspace",
   "author": "Market Pulse",
   "type": "module",
@@ -30,6 +30,9 @@
   "build": {
     "appId": "com.marketpulse.desktop",
     "productName": "Market Pulse",
+    "directories": {
+      "output": "build/desktop-dist"
+    },
     "asar": true,
     "files": [
       "dist/**/*",
