@@ -38,8 +38,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Build Windows installer
+        run: npx electron-builder --win nsis
+
       - name: Publish installer
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: npx electron-builder --win nsis --publish always
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: build/desktop-dist/*.exe
