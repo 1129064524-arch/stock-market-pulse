@@ -15,7 +15,7 @@ from api.llm import analyze_market, analyze_signal, get_settings, public_setting
 from api.indicators import summarize_bars, summarize_daily_bars
 from api.linkage import build_cross_market_overview
 from api.history import fetch_daily_bars
-from api.market_service import latest_or_refresh, refresh_and_persist
+from api.market_service import is_trading_session, latest_or_refresh, refresh_and_persist
 from api.orchestrator import (
     LLMConfigurationError,
     LLMProviderError,
@@ -242,7 +242,7 @@ def prepare_storage() -> None:
 def sample_overview() -> MarketOverview:
     return MarketOverview(
         as_of=datetime.now().astimezone(),
-        market_status="trading",
+        market_status="trading" if is_trading_session() else "closed",
         source="sample",
         is_live=False,
         indices=[
@@ -291,6 +291,11 @@ def refresh_market_snapshot() -> MarketOverview:
     except Exception:
         fallback = latest_or_refresh(max_age_seconds=10**9)
         if fallback is not None:
+            # A stale snapshot is useful for continuity, but must never be
+            # presented as a live provider response after a failed refresh.
+            fallback["source"] = "cache"
+            fallback["is_live"] = False
+            fallback["market_status"] = "trading" if is_trading_session() else "closed"
             return MarketOverview.model_validate(fallback)
         return sample_overview()
 

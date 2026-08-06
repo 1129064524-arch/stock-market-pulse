@@ -48,18 +48,25 @@ jobs:
           if ($installers.Count -eq 0) {
             Write-Error "No Windows installer was produced in build/desktop-dist"
           }
+          $metadata = @(Get-ChildItem -Path build/desktop-dist -Filter latest.yml -File)
+          if ($metadata.Count -eq 0) {
+            Write-Error "No electron-updater metadata was produced in build/desktop-dist"
+          }
           $installers | Select-Object -ExpandProperty FullName
+          $metadata | Select-Object -ExpandProperty FullName
 
       - name: Publish installer
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $installers = @(Get-ChildItem -Path build/desktop-dist -Filter *.exe -File)
+          $artifacts = @(Get-ChildItem -Path build/desktop-dist -File | Where-Object {
+            $_.Extension -in @('.exe', '.yml', '.blockmap')
+          })
           gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --generate-notes
           }
-          foreach ($installer in $installers) {
-            gh release upload $env:GITHUB_REF_NAME $installer.FullName --repo $env:GITHUB_REPOSITORY --clobber
+          foreach ($artifact in $artifacts) {
+            gh release upload $env:GITHUB_REF_NAME $artifact.FullName --repo $env:GITHUB_REPOSITORY --clobber
           }

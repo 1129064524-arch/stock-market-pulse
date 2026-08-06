@@ -1,7 +1,7 @@
 {
   "name": "market-pulse",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local stock and fund market research workspace",
   "author": "Market Pulse",
   "type": "module",
@@ -9,14 +9,15 @@
   "scripts": {
     "dev": "vite",
     "api": ".venv/bin/uvicorn api.main:app --reload --host 127.0.0.1 --port 8000",
-    "scheduler": ".venv/bin/python -m api.scheduler",
+    "scheduler": "node desktop/run-python.cjs -m api.scheduler",
     "build": "vite build",
     "preview": "vite preview",
-    "desktop:build": "npm run build && .venv/bin/python -m PyInstaller --noconfirm --clean --distpath build/backend --workpath build/pyinstaller desktop/backend.spec",
+    "desktop:build": "npm run build && node desktop/run-python.cjs -m PyInstaller --noconfirm --clean --distpath build/backend --workpath build/pyinstaller desktop/backend.spec",
     "desktop:release": "npm run desktop:build && electron-builder --win nsis"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "electron-updater": "^6.6.2",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
@@ -24,8 +25,7 @@
   },
   "devDependencies": {
     "electron": "^38.1.0",
-    "electron-builder": "^26.0.12",
-    "electron-updater": "^6.6.2"
+    "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "com.marketpulse.desktop",
@@ -37,6 +37,7 @@
     "files": [
       "dist/**/*",
       "desktop/**/*",
+      "node_modules/electron-updater/**/*",
       "package.json"
     ],
     "extraResources": [
@@ -50,6 +51,14 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "1129064524-arch",
+        "repo": "stock-market-pulse",
+        "releaseType": "release"
+      }
+    ]
   }
 }

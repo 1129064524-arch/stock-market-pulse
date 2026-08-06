@@ -60,13 +60,17 @@ def get_settings() -> LLMSettings:
     endpoint = configured_endpoint.rstrip("/") or (
         f"{base_url}/responses" if protocol == "responses" else f"{base_url}/chat/completions"
     )
+    try:
+        timeout_seconds = min(max(float(os.getenv("LLM_TIMEOUT_SECONDS", "25")), 5), 180)
+    except (TypeError, ValueError):
+        timeout_seconds = 25
     return LLMSettings(
         base_url=base_url,
         endpoint=endpoint,
         api_key=os.getenv("LLM_API_KEY") or os.getenv("PROMPT_ANALYSIS_API_KEY") or "",
         model=os.getenv("LLM_MODEL") or os.getenv("PROMPT_ANALYSIS_MODEL") or "",
         protocol=protocol,
-        timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "25")),
+        timeout_seconds=timeout_seconds,
     )
 
 

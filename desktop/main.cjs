@@ -1,9 +1,15 @@
 const { app, BrowserWindow, dialog } = require('electron')
-const { autoUpdater } = require('electron-updater')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 const http = require('node:http')
+
+let autoUpdater = null
+try {
+  ({ autoUpdater } = require('electron-updater'))
+} catch (error) {
+  console.warn('自动更新模块不可用，应用将继续启动:', error.message)
+}
 
 const API_PORT = Number(process.env.MARKET_PULSE_API_PORT || 8765)
 let backendProcess
@@ -77,7 +83,7 @@ app.whenReady().then(async () => {
     startBackend()
     if (app.isPackaged || process.env.MARKET_PULSE_API_EXECUTABLE) await waitForBackend()
     await createWindow()
-    if (app.isPackaged) {
+    if (app.isPackaged && autoUpdater) {
       autoUpdater.checkForUpdatesAndNotify().catch((error) => console.warn('Update check failed:', error.message))
     }
   } catch (error) {
