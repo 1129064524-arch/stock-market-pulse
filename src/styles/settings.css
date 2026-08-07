@@ -35,6 +35,12 @@
 .appearance-control button { min-width: 72px; height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-right: 1px solid var(--line-strong); color: var(--muted); background: var(--surface); font-size: 10px; }
 .appearance-control button:last-child { border-right: 0; }
 .appearance-control button.active { color: #fff; background: var(--accent); }
+.update-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 16px 16px; padding-top: 13px; border-top: 1px solid var(--line); }
+.update-control > div { display: grid; gap: 4px; }
+.update-control strong { color: var(--ink); font-size: 11px; }
+.update-control strong small { margin-left: 5px; color: var(--subtle); font-size: 9px; font-weight: 500; }
+.update-control span { color: var(--muted); font-size: 9px; }
+.update-control button { flex: 0 0 auto; }
 .settings-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 9px; padding-top: 2px; }
 .settings-reset { display: inline-flex; align-items: center; gap: 5px; margin-right: auto; color: var(--negative); }
 .settings-error { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; padding: 11px 13px; color: var(--negative); border: 1px solid #e8c9c5; background: var(--negative-soft); font-size: 10px; }

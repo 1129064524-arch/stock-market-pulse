@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain } = require('electron')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -17,6 +17,32 @@ let mainWindow
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) app.quit()
+
+function sendUpdateStatus(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:status', payload)
+}
+
+function configureUpdater() {
+  if (!autoUpdater) return
+  autoUpdater.autoDownload = true
+  autoUpdater.on('checking-for-update', () => sendUpdateStatus({ status: 'checking' }))
+  autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', version: info.version }))
+  autoUpdater.on('update-not-available', () => sendUpdateStatus({ status: 'current', version: app.getVersion() }))
+  autoUpdater.on('download-progress', (progress) => sendUpdateStatus({ status: 'downloading', percent: Math.round(progress.percent || 0) }))
+  autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ status: 'downloaded', version: info.version }))
+  autoUpdater.on('error', (error) => sendUpdateStatus({ status: 'error', message: error.message }))
+}
+
+ipcMain.handle('app:version', () => app.getVersion())
+ipcMain.handle('update:check', async () => {
+  if (!app.isPackaged) return { status: 'development', version: app.getVersion() }
+  if (!autoUpdater) return { status: 'error', message: '自动更新模块不可用' }
+  await autoUpdater.checkForUpdates()
+  return { status: 'checking', version: app.getVersion() }
+})
+ipcMain.handle('update:install', () => {
+  if (app.isPackaged && autoUpdater) autoUpdater.quitAndInstall(false, true)
+})
 
 function backendExecutable() {
   const binaryName = process.platform === 'win32' ? 'market-pulse-api.exe' : 'market-pulse-api'
@@ -73,7 +99,11 @@ async function createWindow() {
     minWidth: 1180,
     minHeight: 720,
     backgroundColor: '#f4f1ec',
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
   })
   const startUrl = process.env.ELECTRON_START_URL || (app.isPackaged
     ? `http://127.0.0.1:${API_PORT}/app/`
@@ -91,6 +121,7 @@ app.on('second-instance', () => {
 
 if (hasSingleInstanceLock) app.whenReady().then(async () => {
   try {
+    configureUpdater()
     startBackend()
     if (app.isPackaged || process.env.MARKET_PULSE_API_EXECUTABLE) await waitForBackend()
     await createWindow()
