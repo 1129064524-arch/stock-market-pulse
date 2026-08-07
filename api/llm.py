@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from api.network import open_url
+from api.research_evidence import bind_model_result, fund_bundle, market_bundle, signal_bundle
 
 load_dotenv()
 
@@ -266,6 +267,12 @@ def _request_json_analysis(system_prompt: str, context: dict) -> dict:
     return _parse_analysis_payload(payload, settings.protocol)
 
 
+def _request_evidence_bound_analysis(system_prompt: str, context: dict, evidence: dict) -> dict:
+    bounded_context = {**context, "research_evidence": evidence}
+    result = _request_json_analysis(system_prompt, bounded_context)
+    return bind_model_result(result, evidence)
+
+
 def analyze_market(snapshot: dict) -> dict:
     system_prompt = """You are a cautious market-research assistant for a personal stock analysis tool.
 Use only the supplied market snapshot. Do not invent news, prices, financial facts, or certainty.
@@ -277,10 +284,11 @@ Return valid JSON only, with this exact schema:
   "evidence": ["up to 3 factual observations from the snapshot"],
   "risks": ["up to 3 risks explicitly present in the snapshot"],
   "watchlist": [{"code":"string", "name":"string", "reason":"string"}],
+  "evidence_refs": ["one or more IDs from research_evidence.manifest"],
   "disclaimer": "固定使用：该分析仅供研究参考，不构成投资建议。"
 }
 """
-    return _request_json_analysis(system_prompt, snapshot)
+    return _request_evidence_bound_analysis(system_prompt, snapshot, market_bundle(snapshot))
 
 
 def analyze_signal(signal_context: dict) -> dict:
@@ -297,10 +305,11 @@ Return valid JSON only, with this exact schema:
   "invalidations": ["up to 3 observable conditions that would weaken the research signal"],
   "next_session_checklist": ["up to 3 neutral checks for the next session"],
   "risks": ["up to 3 risks present in the supplied fields or due to missing data"],
+  "evidence_refs": ["one or more IDs from research_evidence.manifest"],
   "disclaimer": "固定使用：该分析仅供研究参考，不构成投资建议。"
 }
 """
-    return _request_json_analysis(system_prompt, signal_context)
+    return _request_evidence_bound_analysis(system_prompt, signal_context, signal_bundle(signal_context))
 
 
 def analyze_cross_market(context: dict) -> dict:
@@ -320,10 +329,12 @@ Return valid JSON only, with this exact schema:
   "divergences": ["up to 3 cross-market divergences or missing-evidence warnings"],
   "next_checks": ["up to 4 neutral checks for the next refresh/session"],
   "risks": ["up to 3 risks grounded in supplied data limitations"],
+  "evidence_refs": ["one or more IDs from research_evidence.manifest"],
   "disclaimer": "固定使用：该分析仅供研究参考，不构成投资建议。"
 }
 """
-    return _request_json_analysis(system_prompt, context)
+    evidence = context.get("research_evidence") or market_bundle(context.get("stock_market", {}))
+    return _request_evidence_bound_analysis(system_prompt, context, evidence)
 
 
 def analyze_fund(context: dict) -> dict:
@@ -338,10 +349,11 @@ Return valid JSON only with this schema:
   "evidence": ["up to 3 observations grounded in supplied fields"],
   "risks": ["up to 3 risks or missing-data warnings"],
   "next_checks": ["up to 3 neutral checks for the next refresh"],
+  "evidence_refs": ["one or more IDs from research_evidence.manifest"],
   "disclaimer": "固定使用：该分析仅供研究参考，不构成投资建议。"
 }
 """
-    return _request_json_analysis(system_prompt, context)
+    return _request_evidence_bound_analysis(system_prompt, context, fund_bundle(context))
 
 
 def analyze_allocation_reference(context: dict) -> dict:
@@ -359,8 +371,10 @@ Return valid JSON only, with this exact schema:
       "analysis": "one concise Chinese sentence grounded in supplied facts",
       "risk": "one concise Chinese risk or missing-data note"
     }
-  ]
+  ],
+  "evidence_refs": ["one or more IDs from research_evidence.manifest"]
 }
 Keep one card for each supplied sector and preserve the supplied order.
 """
-    return _request_json_analysis(system_prompt, context)
+    evidence = context.get("research_evidence") or market_bundle({"sectors": context.get("sectors", [])})
+    return _request_evidence_bound_analysis(system_prompt, context, evidence)

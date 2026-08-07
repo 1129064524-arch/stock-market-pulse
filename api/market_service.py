@@ -1,24 +1,20 @@
 from datetime import datetime
-import time
 from collections.abc import Callable
 
 from api.collector import MarketDataError, SHANGHAI, collect_eastmoney_overview
+from api.data_router import provider_statuses, run_provider
 from api.rules import evaluate_rules
 from api.storage import daily_histories_for_codes, latest_snapshot, record_rule_events, save_snapshot
 
 
-_provider_failed_until: dict[str, float] = {}
 PROVIDER_COOLDOWN_SECONDS = 30
 
 
 def _collect_with_cooldown(name: str, collector: Callable[[], tuple[dict, list[dict]]]) -> tuple[dict, list[dict]]:
-    if _provider_failed_until.get(name, 0) > time.monotonic():
-        raise MarketDataError(f"{name} provider is cooling down")
     try:
-        return collector()
-    except MarketDataError:
-        _provider_failed_until[name] = time.monotonic() + PROVIDER_COOLDOWN_SECONDS
-        raise
+        return run_provider(name, collector, cooldown_seconds=PROVIDER_COOLDOWN_SECONDS)
+    except RuntimeError as error:
+        raise MarketDataError(str(error)) from error
 
 
 def is_trading_session(now: datetime | None = None) -> bool:
@@ -63,3 +59,8 @@ def latest_or_refresh(max_age_seconds: int = 90) -> dict | None:
             cached["is_live"] = False
             return cached
     return None
+
+
+def market_provider_statuses() -> list[dict[str, object]]:
+    """Expose the short market provider chain and its latest fallback state."""
+    return provider_statuses()

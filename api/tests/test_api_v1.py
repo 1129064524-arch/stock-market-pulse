@@ -7,6 +7,7 @@ from api.models import MarketSnapshot, SignalEvent, StockSummary
 class VersionedApiContractTests(unittest.TestCase):
     def test_core_v1_routes_are_registered(self):
         paths = {route.path for route in app.routes}
+        self.assertTrue({"/api/market/providers", "/api/research/context"}.issubset(paths))
         self.assertTrue({
             "/api/v1/system/health",
             "/api/v1/watchlist/{asset_type}",

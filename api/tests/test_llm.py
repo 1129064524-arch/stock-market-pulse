@@ -5,10 +5,20 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 from api.llm import _parse_analysis_payload, reset_settings, update_settings
+from api.research_evidence import bind_model_result, market_bundle
 from api.main import RuleSignal, SignalAnalysisRequest, signal_analysis
 
 
 class LLMProtocolTests(unittest.TestCase):
+    def test_evidence_references_are_bounded_to_manifest(self):
+        bundle = market_bundle({
+            "as_of": "2026-08-07T10:00:00+08:00", "source": "sina", "is_live": True,
+            "indices": [], "sectors": [], "advancing": 1, "declining": 0,
+        })
+        result = bind_model_result({"evidence_refs": ["market.breadth", "outside"]}, bundle)
+        self.assertEqual(result["evidence_refs"], ["market.breadth"])
+        self.assertEqual(result["evidence_coverage"]["referenced_count"], 1)
+
     def test_parses_chat_completion_json(self):
         payload = {"choices": [{"message": {"content": '{"stance":"中性"}'}}]}
         self.assertEqual(_parse_analysis_payload(payload, "chat_completions"), {"stance": "中性"})

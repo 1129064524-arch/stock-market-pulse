@@ -17,7 +17,7 @@ export default function CrossMarketPage({ liveOverview, movers, fundOverview, li
 
     <article className="panel cross-ai-panel"><div><div className="cross-ai-title"><BrainCircuit size={16} /><strong>跨市场 AI 统筹</strong><span className={`model-status ${llmConfigured ? 'connected' : ''}`}>{llmConfigured ? '模型已配置' : '待配置'}</span></div><p>本地快照 → 研究清单。</p></div><div className="cross-ai-actions"><button className="text-button" onClick={() => setActiveNav('仓位参考')}>仓位参考 <ArrowUpRight size={14} /></button><button className="primary-button" onClick={generateCrossAnalysis} disabled={crossAnalysisState === 'loading'}><BrainCircuit size={15} />{crossAnalysisState === 'loading' ? '正在统筹' : crossAnalysis ? '重新统筹' : '生成跨市场研判'}</button></div></article>
 
-    {crossAnalysisState === 'success' && crossAnalysis && <article className="panel cross-analysis-result"><div className={`cross-regime ${crossAnalysis.regime}`}>{crossAnalysis.regime}</div><div className="cross-analysis-summary"><strong>{crossAnalysis.summary}</strong><span>{crossAnalysis.disclaimer}</span></div><AnalysisList title="股票侧" items={crossAnalysis.stock_view} /><AnalysisList title="基金侧" items={crossAnalysis.fund_view} /><AnalysisList title="下一步核对" items={crossAnalysis.next_checks} /><AnalysisList title="风险与背离" items={[...crossAnalysis.divergences, ...crossAnalysis.risks]} /></article>}
+    {crossAnalysisState === 'success' && crossAnalysis && <article className="panel cross-analysis-result"><div className={`cross-regime ${crossAnalysis.regime}`}>{crossAnalysis.regime}</div><div className="cross-analysis-summary"><strong>{crossAnalysis.summary}</strong><EvidenceMeta coverage={crossAnalysis.evidence_coverage} refs={crossAnalysis.evidence_refs} /><span>{crossAnalysis.disclaimer}</span></div><AnalysisList title="股票侧" items={crossAnalysis.stock_view} /><AnalysisList title="基金侧" items={crossAnalysis.fund_view} /><AnalysisList title="下一步核对" items={crossAnalysis.next_checks} /><AnalysisList title="风险与背离" items={[...crossAnalysis.divergences, ...crossAnalysis.risks]} /></article>}
     {crossAnalysisState === 'error' && <div className="panel cross-analysis-error"><BrainCircuit size={17} /><span>{crossAnalysisError}</span></div>}
 
     <div className="cross-market-grid">
@@ -37,6 +37,12 @@ export default function CrossMarketPage({ liveOverview, movers, fundOverview, li
 
 function AnalysisList({ title, items }) {
   return <div className="cross-analysis-column"><h3>{title}</h3><ul>{items.map((item) => <li key={item}>{item}</li>)}</ul></div>
+}
+
+function EvidenceMeta({ coverage, refs = [] }) {
+  if (!coverage) return null
+  const limited = coverage.status !== 'verified'
+  return <div className={`evidence-meta ${limited ? 'limited' : ''}`} title={(coverage.limitations || []).join('；')}><span>{limited ? '证据有限' : '证据已核验'}</span><small>{coverage.referenced_count || 0}/{coverage.item_count || 0} 项 · {(coverage.sources || []).join(' / ') || '本地数据'}</small>{refs?.length ? <small>引用 {refs.length}</small> : null}</div>
 }
 
 function MarketSide({ title, description, icon: Icon, action, onOpen, rows, kind }) {

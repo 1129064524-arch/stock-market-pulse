@@ -21,6 +21,7 @@
 .cross-analysis-column ul { display: grid; gap: 5px; padding: 0; margin: 0; list-style: none; }
 .cross-analysis-column li { color: var(--muted); font-size: 9px; line-height: 1.45; }
 .cross-analysis-column li::before { content: '•'; padding-right: 4px; color: var(--accent); }
+.cross-analysis-summary .evidence-meta { margin-top: 8px; }
 .cross-analysis-error { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; padding: 13px 16px; color: var(--negative); font-size: 10px; }
 .cross-market-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .cross-side-panel { min-width: 0; }

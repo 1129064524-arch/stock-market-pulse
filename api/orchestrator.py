@@ -6,6 +6,7 @@ from api.funds import latest_or_refresh as latest_funds_or_refresh
 from api.linkage import build_cross_market_overview
 from api.llm import LLMConfigurationError, LLMProviderError, analyze_cross_market
 from api.market_service import latest_or_refresh
+from api.research_evidence import cross_market_bundle
 from api.storage import latest_analysis, save_analysis
 
 
@@ -18,7 +19,7 @@ def build_context() -> dict:
         raise RuntimeError("stock market snapshot unavailable")
     funds = latest_funds_or_refresh()
     linkage = build_cross_market_overview(market, funds)
-    return {
+    context = {
         "stock_market": {
             key: market.get(key)
             for key in ("as_of", "market_status", "source", "indices", "advancing", "declining", "movers", "sectors")
@@ -32,6 +33,8 @@ def build_context() -> dict:
         },
         "deterministic_linkage": linkage,
     }
+    context["research_evidence"] = cross_market_bundle(market, funds, linkage)
+    return context
 
 
 def run_cross_market_analysis() -> dict:

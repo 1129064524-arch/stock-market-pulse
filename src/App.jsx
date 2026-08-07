@@ -62,6 +62,7 @@ function App() {
   const [linkageState, setLinkageState] = useState('idle')
   const [onlyMineFunds, setOnlyMineFunds] = useState(false)
   const [apiAvailable, setApiAvailable] = useState(false)
+  const [providerHealth, setProviderHealth] = useState([])
   const [ruleSignals, setRuleSignals] = useState([])
   const [signalsState, setSignalsState] = useState('idle')
   const [signalEvents, setSignalEvents] = useState([])
@@ -138,6 +139,17 @@ function App() {
       })
 
     return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const loadProviderHealth = () => fetch('/api/market/providers')
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Provider status unavailable')))
+      .then((payload) => { if (active) setProviderHealth(payload.providers || []) })
+      .catch(() => { if (active) setProviderHealth([]) })
+    loadProviderHealth()
+    const interval = window.setInterval(loadProviderHealth, 30_000)
+    return () => { active = false; window.clearInterval(interval) }
   }, [])
 
   useEffect(() => {
@@ -498,11 +510,12 @@ function App() {
       controller?.abort()
       controller = new AbortController()
       const requestOptions = { signal: controller.signal }
-      const [marketResult, fundsResult, signalsResult, linkageResult] = await Promise.allSettled([
+      const [marketResult, fundsResult, signalsResult, linkageResult, providersResult] = await Promise.allSettled([
         fetch('/api/market/overview', requestOptions),
         fetch('/api/funds/overview', requestOptions),
         fetch('/api/signals/current', requestOptions),
         fetch('/api/linkage/overview', requestOptions),
+        fetch('/api/market/providers', requestOptions),
       ])
       polling = false
       if (!active) return
@@ -534,6 +547,7 @@ function App() {
         setLinkage(await linkageResult.value.json())
         setLinkageState('ready')
       }
+      if (providersResult.status === 'fulfilled' && providersResult.value.ok) setProviderHealth((await providersResult.value.json()).providers || [])
     }
 
     const interval = window.setInterval(pollLatestSnapshots, 60_000)
@@ -634,7 +648,7 @@ function App() {
 
         {activeNav === '跨市场总览' && <CrossMarketPage liveOverview={liveOverview} movers={liveMovers} fundOverview={{ funds, universe_count: fundUniverseCount, category_counts: fundCategoryCounts, source: fundSource }} linkage={linkage} linkageState={linkageState} crossAnalysis={crossAnalysis} crossAnalysisState={crossAnalysisState} crossAnalysisError={crossAnalysisError} llmConfigured={llmConfigured} generateCrossAnalysis={generateCrossAnalysis} setActiveNav={setActiveNav} />}
 
-        {activeNav === '股票雷达' && <MarketRadar marketIndices={marketIndices} liveOverview={liveOverview} liveMovers={liveMovers} liveSectors={liveSectors} apiAvailable={apiAvailable} marketSourceLabel={marketSourceLabel} filteredMovers={filteredMovers} selected={selected} setSelected={setSelected} focusOpen={focusOpen} setFocusOpen={setFocusOpen} watchlist={watchlist} toggleWatch={toggleWatch} dailyBars={dailyBars} dailyIndicators={dailyIndicators} syncingHistory={syncingHistory} syncDailyHistory={syncDailyHistory} signalAnalysisState={signalAnalysisState} generateSignalAnalysis={generateSignalAnalysis} query={query} setQuery={setQuery} setOnlyStrong={setOnlyStrong} market={market} setMarket={setMarket} setActiveNav={setActiveNav} />}
+        {activeNav === '股票雷达' && <MarketRadar marketIndices={marketIndices} liveOverview={liveOverview} liveMovers={liveMovers} liveSectors={liveSectors} apiAvailable={apiAvailable} providerHealth={providerHealth} marketSourceLabel={marketSourceLabel} filteredMovers={filteredMovers} selected={selected} setSelected={setSelected} focusOpen={focusOpen} setFocusOpen={setFocusOpen} watchlist={watchlist} toggleWatch={toggleWatch} dailyBars={dailyBars} dailyIndicators={dailyIndicators} syncingHistory={syncingHistory} syncDailyHistory={syncDailyHistory} signalAnalysisState={signalAnalysisState} generateSignalAnalysis={generateSignalAnalysis} query={query} setQuery={setQuery} setOnlyStrong={setOnlyStrong} market={market} setMarket={setMarket} setActiveNav={setActiveNav} />}
 
         {activeNav === '基金全景' && <FundsPage funds={funds} universeCount={fundUniverseCount} categoryCounts={fundCategoryCounts} fundsState={fundsState} fundSource={fundSource} fundWatchlist={fundWatchlist} onlyMine={onlyMineFunds} setOnlyMine={setOnlyMineFunds} refreshFunds={refreshFunds} toggleFundWatch={toggleFundWatch} selectedFund={selectedFund} fundHoldings={fundHoldings} fundLinkedStocks={fundLinkedStocks} fundHoldingsState={fundHoldingsState} fundHoldingsError={fundHoldingsError} openFundHoldings={openFundHoldings} closeFundHoldings={closeFundHoldings} analyzeFund={analyzeFund} fundAnalysis={fundAnalysis} fundAnalysisState={fundAnalysisState} fundAnalysisError={fundAnalysisError} />}
 

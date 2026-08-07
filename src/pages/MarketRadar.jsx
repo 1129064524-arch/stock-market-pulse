@@ -7,6 +7,7 @@ export default function MarketRadar({
   liveMovers,
   liveSectors,
   apiAvailable,
+  providerHealth,
   marketSourceLabel,
   filteredMovers,
   selected,
@@ -32,7 +33,7 @@ export default function MarketRadar({
     <section className="market-strip" aria-label="市场指数">
       {marketIndices.map((index, position) => <div className={`market-card ${position === 0 ? 'main-index' : ''}`} key={index.name}><span>{index.name}</span><strong>{index.value}</strong><PriceMark direction={index.direction}>{index.change}</PriceMark></div>)}
       <div className="market-breadth"><span>市场广度</span><div className="breadth-bar"><i style={{ width: `${liveOverview ? Math.round((liveOverview.advancing / Math.max(liveOverview.advancing + liveOverview.declining, 1)) * 100) : 68}%` }} /></div><strong>{liveOverview?.advancing?.toLocaleString() || '3,681'}</strong><span className="breadth-muted">上涨 / {liveOverview?.declining?.toLocaleString() || '1,426'} 下跌</span></div>
-      <div className="market-card compact"><span>数据来源</span><strong>{liveOverview?.source === 'akshare' ? 'AkShare' : liveOverview?.source === 'eastmoney' ? '东方财富' : liveOverview?.source === 'sina' ? '新浪' : liveOverview?.source === 'cache' ? '本地缓存' : '演示数据'}</strong><span className="neutral-label">{liveOverview?.as_of ? new Date(liveOverview.as_of).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '等待连接'}</span></div>
+      <div className="market-card compact"><span>数据来源</span><strong>{liveOverview?.source === 'akshare' ? 'AkShare' : liveOverview?.source === 'eastmoney' ? '东方财富' : liveOverview?.source === 'sina' ? '新浪' : liveOverview?.source === 'cache' ? '本地缓存' : '演示数据'}</strong><span className="neutral-label">{liveOverview?.as_of ? new Date(liveOverview.as_of).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '等待连接'} · {providerHealth?.find((item) => item.provider === liveOverview?.source)?.status === 'ready' ? '已验证' : liveOverview?.source === 'cache' ? '降级' : '待核验'}</span></div>
     </section>
     <section className="radar-grid">
       <article className="panel movers-panel">

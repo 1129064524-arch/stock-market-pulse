@@ -16,7 +16,7 @@ from api.indicators import summarize_bars, summarize_daily_bars
 from api.linkage import build_cross_market_overview
 from api.history import fetch_daily_bars
 from api.fund_holdings import calculate_holdings_pct, fetch_fund_holdings
-from api.market_service import is_trading_session, latest_or_refresh, refresh_and_persist
+from api.market_service import is_trading_session, latest_or_refresh, market_provider_statuses, refresh_and_persist
 from api.models.fund import HoldingItem
 from api.models.linkage import LinkedStock
 from api.models.quote import Bar, MarketSnapshot, Mover, SectorStat, StockDetail, StockSummary
@@ -28,6 +28,7 @@ from api.orchestrator import (
     auto_analysis_interval_minutes,
     latest_cross_market_analysis,
     run_cross_market_analysis,
+    build_context,
 )
 from api.rules import RULE_CATALOG, evaluate_rules, select_active_signals
 from api.storage import daily_histories_for_codes, delete_watchlist_item, initialize, latest_analysis, list_watchlist, recent_analyses, recent_bars, recent_daily_bars, recent_signal_events, save_analysis, save_daily_bars, save_watchlist_item
@@ -125,6 +126,8 @@ class CrossMarketAnalysis(BaseModel):
     divergences: list[str] = Field(max_length=3)
     next_checks: list[str] = Field(max_length=4)
     risks: list[str] = Field(max_length=3)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=6)
+    evidence_coverage: dict[str, object] | None = None
     disclaimer: str = Field(max_length=80)
 
 
@@ -145,6 +148,8 @@ class DecisionReference(BaseModel):
     source: str
     analysis_source: Literal["llm", "rules"]
     cards: list[DecisionCard] = Field(max_length=8)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=6)
+    evidence_coverage: dict[str, object] | None = None
     disclaimer: str = Field(max_length=120)
 
 
@@ -183,6 +188,8 @@ class MarketAnalysis(BaseModel):
     evidence: list[str] = Field(max_length=3)
     risks: list[str] = Field(max_length=3)
     watchlist: list[WatchItem] = Field(max_length=3)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=6)
+    evidence_coverage: dict[str, object] | None = None
     disclaimer: str
 
 
@@ -191,6 +198,8 @@ class FundAnalysis(BaseModel):
     evidence: list[str] = Field(max_length=3)
     risks: list[str] = Field(max_length=3)
     next_checks: list[str] = Field(max_length=3)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=6)
+    evidence_coverage: dict[str, object] | None = None
     disclaimer: str = Field(max_length=80)
 
 
@@ -223,6 +232,8 @@ class SignalResearch(BaseModel):
     invalidations: list[str] = Field(max_length=3)
     next_session_checklist: list[str] = Field(max_length=3)
     risks: list[str] = Field(max_length=3)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=6)
+    evidence_coverage: dict[str, object] | None = None
     disclaimer: str = Field(max_length=80)
 
 
@@ -494,6 +505,23 @@ def refresh_market_snapshot() -> MarketOverview:
             fallback["market_status"] = "trading" if is_trading_session() else "closed"
             return MarketOverview.model_validate(fallback)
         return sample_overview()
+
+
+@app.get("/api/market/providers")
+def market_providers() -> dict[str, object]:
+    """Return provider health and fallback diagnostics for the desktop status UI."""
+    return {"providers": market_provider_statuses()}
+
+
+@app.get("/api/research/context")
+def research_context() -> dict[str, object]:
+    """Expose the normalized read-only stock/fund context used by research runs."""
+    try:
+        context = build_context()
+        context["provider_health"] = market_provider_statuses()
+        return context
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail={"code": "research_context_unavailable", "message": str(error)}) from error
 
 
 @app.get("/api/funds/overview", response_model=FundOverview)

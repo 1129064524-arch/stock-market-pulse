@@ -49,12 +49,15 @@ def build_decision_reference() -> dict:
     sectors = context["stock_market"].get("sectors", [])
     fallback = _fallback_cards(sectors)
     analysis_source = "rules"
+    evidence_refs: list[str] = []
     if get_settings().configured and fallback:
         try:
             model_result = analyze_allocation_reference({
                 "sectors": sectors[:8],
                 "deterministic_linkage": context["deterministic_linkage"],
+                "research_evidence": context.get("research_evidence"),
             })
+            evidence_refs = model_result.get("evidence_refs", [])
             by_theme = {item["theme"]: item for item in model_result.get("cards", []) if item.get("theme")}
             for card in fallback:
                 model_card = by_theme.get(card["theme"])
@@ -75,5 +78,7 @@ def build_decision_reference() -> dict:
         "source": context["stock_market"].get("source", "sample"),
         "analysis_source": analysis_source,
         "cards": fallback,
+        "evidence_refs": evidence_refs,
+        "evidence_coverage": context.get("research_evidence", {}).get("coverage"),
         "disclaimer": "仅供研究参考，不构成投资建议；缺失估值和 20 日数据已明确标注。",
     }
