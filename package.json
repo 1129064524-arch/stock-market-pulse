@@ -1,7 +1,7 @@
 {
   "name": "market-pulse",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Local stock and fund market research workspace",
   "author": "Market Pulse",
   "type": "module",
@@ -37,6 +37,7 @@
     "files": [
       "dist/**/*",
       "desktop/**/*",
+      "assets/**/*",
       "node_modules/electron-updater/**/*",
       "package.json"
     ],
@@ -45,6 +46,7 @@
       { "from": "build/backend", "to": "backend" }
     ],
     "win": {
+      "icon": "assets/market-pulse.ico",
       "target": [{ "target": "nsis", "arch": ["x64"] }]
     },
     "nsis": {

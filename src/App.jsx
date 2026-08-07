@@ -470,15 +470,22 @@ function App() {
 
   useEffect(() => {
     let active = true
+    let polling = false
+    let controller
 
     const pollLatestSnapshots = async () => {
-      if (document.visibilityState === 'hidden') return
+      if (document.visibilityState === 'hidden' || polling) return
+      polling = true
+      controller?.abort()
+      controller = new AbortController()
+      const requestOptions = { signal: controller.signal }
       const [marketResult, fundsResult, signalsResult, linkageResult] = await Promise.allSettled([
-        fetch('/api/market/overview'),
-        fetch('/api/funds/overview'),
-        fetch('/api/signals/current'),
-        fetch('/api/linkage/overview'),
+        fetch('/api/market/overview', requestOptions),
+        fetch('/api/funds/overview', requestOptions),
+        fetch('/api/signals/current', requestOptions),
+        fetch('/api/linkage/overview', requestOptions),
       ])
+      polling = false
       if (!active) return
 
       if (marketResult.status === 'fulfilled' && marketResult.value.ok) {
@@ -486,7 +493,10 @@ function App() {
         setLiveMovers(snapshot.movers || [])
         setLiveSectors(snapshot.sectors || [])
         setLiveOverview(snapshot)
-        setSelected((current) => snapshot.movers?.find((stock) => stock.code === current.code) || snapshot.movers?.[0] || current)
+        setSelected((current) => {
+          const next = snapshot.movers?.find((stock) => stock.code === current.code) || snapshot.movers?.[0] || current
+          return next.code === current.code && next.price === current.price && next.change === current.change ? current : next
+        })
         setApiAvailable(true)
       }
       if (fundsResult.status === 'fulfilled' && fundsResult.value.ok) {
@@ -514,6 +524,7 @@ function App() {
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
       active = false
+      controller?.abort()
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }

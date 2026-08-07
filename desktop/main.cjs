@@ -99,6 +99,7 @@ async function createWindow() {
     minWidth: 1180,
     minHeight: 720,
     backgroundColor: '#f4f1ec',
+    icon: path.join(__dirname, '..', 'assets', 'market-pulse.png'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
