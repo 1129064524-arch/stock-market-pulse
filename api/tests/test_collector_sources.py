@@ -9,11 +9,12 @@ from api.sina_source import parse_index_payload
 class CollectorSourceTests(unittest.TestCase):
     def test_parses_sina_index_payload(self):
         payload = (
-            'var hq_str_s_sh000001="上证指数,3900,3890,3909.45,0,0,0,0,100,200,2026-08-06,10:00:00";'
-            'var hq_str_s_sz399001="深证成指,12000,12000,11940,0,0,0,0,100,200,2026-08-06,10:00:00";'
+            'var hq_str_s_sh000001="上证指数,3909.45,19.45,0.50,100,200";'
+            'var hq_str_s_sz399001="深证成指,11940.00,-60.00,-0.50,100,200";'
         )
         result = parse_index_payload(payload)
         self.assertEqual([item["name"] for item in result], ["上证指数", "深证成指"])
+        self.assertEqual(result[0]["value"], "3,909.45")
         self.assertEqual(result[0]["change"], "+0.50%")
         self.assertEqual(result[1]["direction"], "down")
 

@@ -20,7 +20,21 @@ import SignalPoolPage from './pages/SignalPoolPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import WatchlistPage from './pages/WatchlistPage.jsx'
 
+const shanghaiTimeFormatter = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+const shanghaiSessionFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+function marketPhase(date) {
+  const parts = Object.fromEntries(shanghaiSessionFormatter.formatToParts(date).map((part) => [part.type, part.value]))
+  if (['Sat', 'Sun'].includes(parts.weekday)) return { trading: false, label: '休市' }
+  const minutes = Number(parts.hour) * 60 + Number(parts.minute)
+  if ((minutes >= 570 && minutes < 690) || (minutes >= 780 && minutes < 900)) return { trading: true, label: '交易中' }
+  if (minutes >= 690 && minutes < 780) return { trading: false, label: '午间休市' }
+  if (minutes < 570) return { trading: false, label: '盘前' }
+  return { trading: false, label: '已收盘' }
+}
+
 function App() {
+  const [clock, setClock] = useState(() => new Date())
   const [theme, setTheme] = useState(() => window.localStorage.getItem('market-pulse-theme') || 'light')
   const [activeNav, setActiveNav] = useState('跨市场总览')
   const [market, setMarket] = useState('全部市场')
@@ -86,6 +100,11 @@ function App() {
     document.documentElement.dataset.theme = theme
     window.localStorage.setItem('market-pulse-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const destinations = ['跨市场总览', '股票雷达', '基金全景', '信号池', '自选观察', 'AI 研判', '仓位参考', '预警中心', '盘后复盘']
@@ -460,7 +479,7 @@ function App() {
       setLiveOverview(snapshot)
       setSelected((current) => snapshot.movers.find((stock) => stock.code === current.code) || snapshot.movers[0] || current)
       setApiAvailable(true)
-      showNotice(['akshare', 'eastmoney'].includes(snapshot.source) ? '实时行情已刷新' : '数据源暂不可用，已显示缓存数据')
+      showNotice(['akshare', 'eastmoney', 'sina'].includes(snapshot.source) ? `${snapshot.source === 'sina' ? '新浪' : snapshot.source === 'akshare' ? 'AkShare' : '东方财富'}行情已刷新` : '数据源暂不可用，已显示缓存数据')
     } catch {
       showNotice('行情刷新失败，请稍后重试')
     } finally {
@@ -591,8 +610,9 @@ function App() {
     '仓位参考': '研究优先级。',
   }
   const marketIndices = liveOverview?.indices || fallbackIndices
-  const marketSourceLabel = liveOverview?.source === 'akshare' ? 'AkShare 全市场快照' : liveOverview?.source === 'eastmoney' ? (liveOverview.is_live ? '东方财富实时快照' : '东方财富收盘快照') : liveOverview?.source === 'cache' ? '本地缓存快照' : '演示数据模式'
-  const marketTrading = liveOverview?.market_status === 'trading'
+  const marketSourceLabel = liveOverview?.source === 'akshare' ? 'AkShare 全市场快照' : liveOverview?.source === 'eastmoney' ? (liveOverview.is_live ? '东方财富实时快照' : '东方财富收盘快照') : liveOverview?.source === 'sina' ? '新浪全市场快照' : liveOverview?.source === 'cache' ? '本地缓存快照' : '演示数据模式'
+  const session = marketPhase(clock)
+  const marketTrading = session.trading
 
   return <div className="app-shell">
     <Sidebar activeNav={activeNav} menuOpen={menuOpen} onNavigate={(label) => { setActiveNav(label); setMenuOpen(false) }} onCloseMenu={() => setMenuOpen(false)} />
@@ -600,7 +620,7 @@ function App() {
     <main>
       <header className="topbar">
         <button className="icon-button mobile-menu" aria-label="打开菜单" onClick={() => setMenuOpen(true)}><Menu size={20} /></button>
-        <div className="market-status"><span className={marketTrading ? 'live-dot' : 'offline-dot'} />沪深市场 <strong>{marketTrading ? '交易中' : '已收盘'}</strong><span className="market-time">{liveOverview?.as_of ? new Date(liveOverview.as_of).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}</span></div>
+        <div className="market-status"><span className={marketTrading ? 'live-dot' : 'offline-dot'} />沪深市场 <strong>{session.label}</strong><span className="market-time">{shanghaiTimeFormatter.format(clock)}</span></div>
         <div className="topbar-actions"><button className="icon-button" aria-label="帮助" onClick={() => setActiveNav('帮助')}><CircleHelp size={19} /></button><button className="notification" aria-label={`${Math.min(alertItems.length, 99)} 条预警`} onClick={() => setActiveNav('预警中心')}><Bell size={19} /><i>{Math.min(alertItems.length, 99)}</i></button><button className="avatar" aria-label="个人账户" onClick={() => showNotice('当前为本地研究工作区')}>我</button></div>
       </header>
 

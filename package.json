@@ -1,7 +1,7 @@
 {
   "name": "market-pulse",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Local stock and fund market research workspace",
   "author": "Market Pulse",
   "type": "module",
@@ -42,12 +42,25 @@
       "package.json"
     ],
     "extraResources": [
-      { "from": "dist", "to": "web" },
-      { "from": "build/backend", "to": "backend" }
+      {
+        "from": "dist",
+        "to": "web"
+      },
+      {
+        "from": "build/backend",
+        "to": "backend"
+      }
     ],
     "win": {
       "icon": "assets/market-pulse.ico",
-      "target": [{ "target": "nsis", "arch": ["x64"] }]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

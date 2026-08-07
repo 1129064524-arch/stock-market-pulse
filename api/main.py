@@ -151,7 +151,7 @@ class DecisionReference(BaseModel):
 class MarketOverview(BaseModel):
     as_of: datetime
     market_status: Literal["trading", "closed"]
-    source: Literal["akshare", "eastmoney", "sample", "cache"]
+    source: Literal["akshare", "eastmoney", "sina", "sample", "cache"]
     is_live: bool
     indices: list[MarketIndex]
     advancing: int
