@@ -8,6 +8,7 @@ from api.storage import daily_histories_for_codes, latest_snapshot, record_rule_
 
 
 _provider_failed_until: dict[str, float] = {}
+PROVIDER_COOLDOWN_SECONDS = 30
 
 
 def _collect_with_cooldown(name: str, collector: Callable[[], tuple[dict, list[dict]]]) -> tuple[dict, list[dict]]:
@@ -16,7 +17,7 @@ def _collect_with_cooldown(name: str, collector: Callable[[], tuple[dict, list[d
     try:
         return collector()
     except MarketDataError:
-        _provider_failed_until[name] = time.monotonic() + 300
+        _provider_failed_until[name] = time.monotonic() + PROVIDER_COOLDOWN_SECONDS
         raise
 
 
