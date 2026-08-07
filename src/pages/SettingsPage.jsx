@@ -129,6 +129,10 @@ export default function SettingsPage({ theme, setTheme, onNotice, onSettingsChan
 
   return <section className="workspace-page settings-page">
     <div className="settings-intro"><div><h2>工作区设置</h2><p>模型通道与自动统筹。</p></div><span className={`model-status ${status?.configured ? 'connected' : ''}`}>{status?.configured ? '模型通道已配置' : '待配置'}</span></div>
+    <article className="panel settings-panel settings-update-panel">
+      <div className="panel-heading compact-heading"><div><h2><Download size={15} />应用更新</h2><p>检查 GitHub Release 中的最新 Windows 版本。</p></div><span className="signal-source ready">当前版本 {appVersion ? `v${appVersion}` : '检测中'}</span></div>
+      <div className="update-control"><div><strong>{updateState.status === 'available' ? `发现 v${updateState.version}` : updateState.status === 'downloaded' ? `v${updateState.version} 已下载` : '版本检查'}</strong><span>{updateState.status === 'checking' ? '正在检查更新' : updateState.status === 'available' ? '新版本正在自动下载' : updateState.status === 'downloading' ? `正在下载 ${updateState.percent || 0}%` : updateState.status === 'downloaded' ? '重启后完成安装' : updateState.status === 'current' ? '当前已是最新版本' : updateState.status === 'development' ? '当前为开发预览页，请使用 Windows 安装版' : updateState.status === 'error' ? (updateState.message || '检查更新失败') : '点击按钮检查最新版本'}</span></div>{updateState.status === 'downloaded' ? <button type="button" className="primary-button" onClick={() => window.marketPulse?.installUpdate()}><Download size={14} />重启安装</button> : <button type="button" className="detail-button" onClick={checkUpdate} disabled={['checking', 'downloading'].includes(updateState.status)}><RefreshCw className={['checking', 'downloading'].includes(updateState.status) ? 'loading-icon' : ''} size={14} />检查更新</button>}</div>
+    </article>
     {loadState === 'loading' && <div className="panel settings-loading">正在读取本地配置…</div>}
     {loadState !== 'loading' && <form className="settings-layout" onSubmit={save}>
       <article className="panel settings-panel">
@@ -141,11 +145,6 @@ export default function SettingsPage({ theme, setTheme, onNotice, onSettingsChan
           <label className="settings-field settings-field-wide"><span>API Key {status?.api_key_masked && <em>当前 {status.api_key_masked}</em>}</span><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={status?.api_key_set ? '留空保持当前密钥' : '输入模型通道密钥'} autoComplete="new-password" /></label>
           <label className="settings-field"><span>请求超时（秒）</span><input type="number" min="5" max="180" step="1" value={form.timeout_seconds} onChange={(event) => update('timeout_seconds', Number(event.target.value))} /></label>
         </div>
-      </article>
-
-      <article className="panel settings-panel settings-update-panel">
-        <div className="panel-heading compact-heading"><div><h2><Download size={15} />应用更新</h2><p>检查 GitHub Release 中的最新 Windows 版本。</p></div><span className="signal-source ready">当前版本 {appVersion ? `v${appVersion}` : '检测中'}</span></div>
-        <div className="update-control"><div><strong>{updateState.status === 'available' ? `发现 v${updateState.version}` : updateState.status === 'downloaded' ? `v${updateState.version} 已下载` : '版本检查'}</strong><span>{updateState.status === 'checking' ? '正在检查更新' : updateState.status === 'available' ? '新版本正在自动下载' : updateState.status === 'downloading' ? `正在下载 ${updateState.percent || 0}%` : updateState.status === 'downloaded' ? '重启后完成安装' : updateState.status === 'current' ? '当前已是最新版本' : updateState.status === 'development' ? '当前为开发预览页，请使用 Windows 安装版' : updateState.status === 'error' ? (updateState.message || '检查更新失败') : '点击按钮检查最新版本'}</span></div>{updateState.status === 'downloaded' ? <button type="button" className="primary-button" onClick={() => window.marketPulse?.installUpdate()}><Download size={14} />重启安装</button> : <button type="button" className="detail-button" onClick={checkUpdate} disabled={['checking', 'downloading'].includes(updateState.status)}><RefreshCw className={['checking', 'downloading'].includes(updateState.status) ? 'loading-icon' : ''} size={14} />检查更新</button>}</div>
       </article>
 
       <article className="panel settings-panel automation-panel">
